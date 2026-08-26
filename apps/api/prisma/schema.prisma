@@ -1,0 +1,113 @@
+// Draft schema matching docs/data-model.md.
+// Phase 1 implementation work: run `prisma migrate dev` once models below are finalized.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // Neon free tier, both locally and hosted -- see docs/hosting.md
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+
+  carts  Cart[]
+  orders Order[]
+}
+
+model Product {
+  id          String @id @default(cuid())
+  name        String
+  description String
+  priceCents  Int
+  imageUrl    String
+  stock       Int
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+}
+
+model Cart {
+  id              String   @id @default(cuid())
+  customerId      String?
+  status          String   @default("active") // active | abandoned | converted
+  lastActivityAt  DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+  items    CartItem[]
+  coupons  Coupon[]
+  events   AbandonedCartEvent[]
+  order    Order?
+}
+
+model CartItem {
+  id             String @id @default(cuid())
+  cartId         String
+  productId      String
+  quantity       Int
+  unitPriceCents Int
+
+  cart    Cart    @relation(fields: [cartId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Order {
+  id             String   @id @default(cuid())
+  cartId         String   @unique
+  customerId     String
+  status         String   @default("paid")
+  subtotalCents  Int
+  discountCents  Int      @default(0)
+  totalCents     Int
+  couponId       String?
+  createdAt      DateTime @default(now())
+
+  cart     Cart        @relation(fields: [cartId], references: [id])
+  customer Customer    @relation(fields: [customerId], references: [id])
+  coupon   Coupon?     @relation(fields: [couponId], references: [id])
+  items    OrderItem[]
+}
+
+model OrderItem {
+  id             String @id @default(cuid())
+  orderId        String
+  productId      String
+  quantity       Int
+  unitPriceCents Int
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Coupon {
+  id               String    @id @default(cuid())
+  code             String    @unique
+  cartId           String
+  percentOff       Int
+  status           String    @default("active") // active | redeemed | expired
+  expiresAt        DateTime
+  issuedBy         String // agent | system
+  zendeskTicketId  String?
+  createdAt        DateTime  @default(now())
+
+  cart   Cart    @relation(fields: [cartId], references: [id])
+  orders Order[]
+}
+
+model AbandonedCartEvent {
+  id              String   @id @default(cuid())
+  cartId          String
+  detectedAt      DateTime @default(now())
+  zendeskTicketId String?
+  status          String   @default("detected")
+  // detected | ticket_created | coupon_sent | recovered | expired_unused
+
+  cart Cart @relation(fields: [cartId], references: [id])
+}
