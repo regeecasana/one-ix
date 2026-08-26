@@ -1,0 +1,17 @@
+{
+  "name": "oneix",
+  "private": true,
+  "description": "Demo e-commerce platform with an abandoned-cart-recovery flow surfaced through a Zendesk ticket sidebar app",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:storefront": "npm run dev --workspace=apps/storefront",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:zendesk-app": "npm run dev --workspace=apps/zendesk-app",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  }
+}
