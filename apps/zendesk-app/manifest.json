@@ -1,0 +1,30 @@
+{
+  "name": "oneix Abandoned Cart",
+  "author": {
+    "name": "oneix demo",
+    "email": "demo@example.com"
+  },
+  "defaultLocale": "en",
+  "private": true,
+  "location": {
+    "support": {
+      "ticket_sidebar": "assets/iframe.html"
+    }
+  },
+  "version": "1.0.0",
+  "frameworkVersion": "2.0",
+  "parameters": [
+    {
+      "name": "apiBaseUrl",
+      "type": "text",
+      "required": true,
+      "helpText": "Base URL where apps/api is reachable, e.g. http://localhost:4000"
+    },
+    {
+      "name": "internalToken",
+      "type": "password",
+      "required": true,
+      "helpText": "Shared secret sent as X-Internal-Token to apps/api's internal endpoints"
+    }
+  ]
+}
