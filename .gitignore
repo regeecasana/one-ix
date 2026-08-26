@@ -12,10 +12,6 @@ Thumbs.db
 .turbo/
 coverage/
 
-# Prisma / SQLite
-apps/api/prisma/dev.db
-apps/api/prisma/dev.db-journal
-
 # Zendesk app build output
 apps/zendesk-app/dist/
 apps/zendesk-app/tmp/

@@ -34,6 +34,7 @@ apps/
   zendesk-app/    Zendesk ticket sidebar app (ZAF v2 + React)
 packages/
   shared/         TypeScript types shared by all three apps
+infra/            Docker Compose setup for running api + storefront locally
 docs/             Architecture, data model, API spec, and demo runbook
 ```
 
@@ -77,6 +78,16 @@ polish).
 
 ## Quick start (once implemented)
 
+With Docker (no local Node/Postgres install needed for `api`/`storefront`):
+
+```
+cp apps/api/.env.example apps/api/.env
+cp apps/storefront/.env.example apps/storefront/.env
+cd infra && docker compose up --build
+```
+
+Without Docker:
+
 ```
 npm install
 cp apps/api/.env.example apps/api/.env             # Neon connection string, Zendesk credentials, etc.
@@ -86,6 +97,7 @@ npm run dev:storefront
 npm run dev:zendesk-app
 ```
 
-Full local setup is in [docs/demo-setup.md](docs/demo-setup.md); deploying
-the whole thing to Vercel + Render + Neon for free is in
+Full local setup (both paths) is in [docs/demo-setup.md](docs/demo-setup.md)
+and [infra/README.md](infra/README.md); deploying the whole thing to Vercel +
+Render + Neon for free — without Docker — is in
 [docs/hosting.md](docs/hosting.md).
