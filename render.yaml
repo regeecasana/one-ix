@@ -1,0 +1,29 @@
+# Render Blueprint for apps/api. See docs/hosting.md.
+# Create with Render's "New -> Blueprint" pointed at this repo.
+services:
+  - type: web
+    name: oneix-api
+    runtime: node
+    plan: free
+    rootDir: apps/api
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Neon connection string, see docs/hosting.md
+      - key: STOREFRONT_URL
+        sync: false # the deployed Vercel URL
+      - key: INTERNAL_API_TOKEN
+        sync: false
+      - key: ZENDESK_SUBDOMAIN
+        sync: false
+      - key: ZENDESK_EMAIL
+        sync: false
+      - key: ZENDESK_API_TOKEN
+        sync: false
+      - key: ABANDON_THRESHOLD_MS
+        value: "60000"
+      - key: ABANDON_SWEEP_INTERVAL_MS
+        value: "15000"
+      - key: COUPON_TTL_MINUTES
+        value: "15"
