@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/build
+**/.env
+!**/.env.example
+.git
+.vscode
+apps/zendesk-app/assets
+apps/zendesk-app/tmp

@@ -1,0 +1,81 @@
+# Local development only. Not used for the hosted demo -- see
+# docs/hosting.md (Vercel for storefront, Render for api, Neon for the
+# database). This just gives that same three-piece shape a fully offline,
+# reproducible local equivalent, swapping Neon for a local Postgres
+# container.
+#
+# Usage: from infra/, `docker compose up --build`
+#   storefront -> http://localhost:5173
+#   api        -> http://localhost:4000/health
+#   postgres   -> localhost:5432 (user/pass/db: oneix/oneix/oneix)
+#
+# Requires apps/api/.env and apps/storefront/.env to exist (copy from the
+# adjacent .env.example) -- see docs/demo-setup.md. DATABASE_URL,
+# STOREFRONT_URL, and PORT are overridden below regardless, so their values
+# in apps/api/.env don't matter for Docker; Zendesk credentials do, if
+# you're exercising that part of the flow.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: oneix
+      POSTGRES_PASSWORD: oneix
+      POSTGRES_DB: oneix
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oneix"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/api.Dockerfile
+    env_file:
+      - ../apps/api/.env
+    environment:
+      DATABASE_URL: postgresql://oneix:oneix@db:5432/oneix
+      STOREFRONT_URL: http://localhost:5173
+      PORT: "4000"
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ..:/app
+      # Anonymous volumes so the image's installed node_modules aren't
+      # shadowed by the bind mount above (the host repo has no
+      # node_modules of its own to mount over them).
+      - /app/node_modules
+      - /app/apps/api/node_modules
+      - /app/packages/shared/node_modules
+    command: >
+      sh -c "npm run prisma:generate --workspace=apps/api &&
+             npm run db:push --workspace=apps/api &&
+             npm run dev --workspace=apps/api"
+
+  storefront:
+    build:
+      context: ..
+      dockerfile: infra/storefront.Dockerfile
+    env_file:
+      - ../apps/storefront/.env
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    volumes:
+      - ..:/app
+      - /app/node_modules
+      - /app/apps/storefront/node_modules
+      - /app/packages/shared/node_modules
+    command: npm run dev --workspace=apps/storefront
+
+volumes:
+  pgdata:
