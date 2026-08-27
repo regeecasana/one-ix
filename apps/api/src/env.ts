@@ -16,5 +16,4 @@ export const env = {
   },
   abandonThresholdMs: num("ABANDON_THRESHOLD_MS", 60_000),
   abandonSweepIntervalMs: num("ABANDON_SWEEP_INTERVAL_MS", 15_000),
-  couponTtlMinutes: num("COUPON_TTL_MINUTES", 15),
 };

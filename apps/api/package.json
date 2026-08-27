@@ -2,7 +2,7 @@
   "name": "@oneix/api",
   "version": "0.0.0",
   "private": true,
-  "description": "Backend for the oneix demo: products, carts, orders, coupons, abandoned-cart sweep, email, Zendesk integration",
+  "description": "Backend for the XLSmart/Ravta telco demo: connectivity plans, setups, OTP identity resolution, CDP nudge sweep, support tickets, email, Zendesk integration",
   "main": "src/index.ts",
   "scripts": {
     "dev": "tsx watch src/index.ts",

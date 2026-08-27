@@ -3,61 +3,58 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 // imageUrl is intentionally blank -- the storefront renders a line-art
-// ProductIcon per product id instead of photography (see
-// apps/storefront/src/components/ProductIcon.tsx).
+// ProductIcon per product id instead of photography.
 const products = [
   {
-    id: "prod-sim",
-    name: "Prepaid SIM Card",
-    description: "Unlimited talk & text, 10GB data. 30-day plan, no contract.",
-    priceCents: 1999,
+    id: "plan-starter",
+    name: "Starter Plan",
+    description: "10GB data, unlimited calls & text. Good for everyday browsing.",
+    priceCents: 1499,
     imageUrl: "",
-    stock: 200,
+    stock: 500,
   },
   {
-    id: "prod-earbuds",
-    name: "Wireless Earbuds",
-    description: "Noise isolation, 24-hour case battery, one-tap pairing.",
-    priceCents: 5999,
+    id: "plan-work",
+    name: "Work & Call Plan",
+    description: "30GB data, HD video calls, priority network during work hours.",
+    priceCents: 2499,
     imageUrl: "",
-    stock: 45,
+    stock: 500,
   },
   {
-    id: "prod-hotspot",
-    name: "5G Pocket Hotspot",
-    description: "Connects up to 10 devices, 20-hour battery.",
-    priceCents: 8999,
+    id: "plan-creator-pro",
+    name: "Creator Pro Plan",
+    description: "100GB data, priority upload speed for livestreaming, unlimited social media.",
+    priceCents: 3999,
     imageUrl: "",
-    stock: 30,
+    stock: 500,
   },
   {
-    id: "prod-router",
-    name: "Wi-Fi 6 Home Router",
-    description: "Mesh-ready, gigabit ports, covers up to 2,500 sq ft.",
-    priceCents: 12999,
+    id: "plan-home-multi",
+    name: "Home Multi-Device Plan",
+    description: "150GB shared across up to 5 devices. Built for multi-brand households.",
+    priceCents: 4999,
     imageUrl: "",
-    stock: 20,
+    stock: 500,
   },
   {
-    id: "prod-phone",
-    name: "Relay Phone 12",
-    description: '6.1" display, 128GB, 5G. Unlocked, works with any SIM.',
-    priceCents: 49999,
+    id: "addon-5g-boost",
+    name: "5G Speed Boost",
+    description: "Unlock 5G priority access on any plan.",
+    priceCents: 999,
     imageUrl: "",
-    stock: 12,
+    stock: 500,
   },
 ];
 
 async function main() {
   // Demo data only -- reset dependent tables so a reseed always leaves a
-  // clean, telco-only catalog rather than mixing in whatever a previous
-  // theme's carts/orders left behind (they'd reference product ids that no
-  // longer exist).
+  // clean catalog rather than mixing in whatever a previous run left behind
+  // (they'd reference product ids that no longer exist).
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.cartItem.deleteMany();
-  await prisma.coupon.deleteMany();
-  await prisma.abandonedCartEvent.deleteMany();
+  await prisma.supportTicket.deleteMany();
   await prisma.cart.deleteMany();
   await prisma.customer.deleteMany();
   await prisma.product.deleteMany();

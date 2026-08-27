@@ -1,11 +1,12 @@
 import type {
   Cart as PrismaCart,
   CartItem as PrismaCartItem,
-  Coupon as PrismaCoupon,
+  Customer as PrismaCustomer,
   Order as PrismaOrder,
   Product as PrismaProduct,
+  SupportTicket as PrismaSupportTicket,
 } from "@prisma/client";
-import type { Cart, CartItem, Coupon, Order, Product } from "@oneix/shared";
+import type { Cart, CartItem, Customer, Order, Product, SupportTicket } from "@oneix/shared";
 
 export function serializeProduct(p: PrismaProduct): Product {
   return {
@@ -34,23 +35,14 @@ export function serializeCart(c: PrismaCart & { items: PrismaCartItem[] }): Cart
     customerId: c.customerId,
     status: c.status as Cart["status"],
     items: c.items.map(serializeCartItem),
+    utmSource: c.utmSource,
+    utmCampaign: c.utmCampaign,
+    utmContent: c.utmContent,
+    recommendationReason: c.recommendationReason,
+    remindedAt: c.remindedAt ? c.remindedAt.toISOString() : null,
     lastActivityAt: c.lastActivityAt.toISOString(),
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
-  };
-}
-
-export function serializeCoupon(c: PrismaCoupon): Coupon {
-  return {
-    id: c.id,
-    code: c.code,
-    cartId: c.cartId,
-    percentOff: c.percentOff,
-    status: c.status as Coupon["status"],
-    expiresAt: c.expiresAt.toISOString(),
-    issuedBy: c.issuedBy as Coupon["issuedBy"],
-    zendeskTicketId: c.zendeskTicketId,
-    createdAt: c.createdAt.toISOString(),
   };
 }
 
@@ -61,9 +53,30 @@ export function serializeOrder(o: PrismaOrder): Order {
     customerId: o.customerId,
     status: "paid",
     subtotalCents: o.subtotalCents,
-    discountCents: o.discountCents,
     totalCents: o.totalCents,
-    couponId: o.couponId,
+    pointsEarned: o.pointsEarned,
     createdAt: o.createdAt.toISOString(),
+  };
+}
+
+export function serializeCustomer(c: PrismaCustomer): Customer {
+  return {
+    id: c.id,
+    email: c.email,
+    name: c.name,
+    mobileNumber: c.mobileNumber,
+    pointsBalance: c.pointsBalance,
+    createdAt: c.createdAt.toISOString(),
+  };
+}
+
+export function serializeSupportTicket(t: PrismaSupportTicket): SupportTicket {
+  return {
+    id: t.id,
+    customerId: t.customerId,
+    zendeskTicketId: t.zendeskTicketId,
+    subject: t.subject,
+    message: t.message,
+    createdAt: t.createdAt.toISOString(),
   };
 }

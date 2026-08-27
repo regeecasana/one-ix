@@ -3,8 +3,9 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { env } from "./env";
 import { HttpError } from "./errors";
 import productsRouter from "./routes/products";
+import builderRouter from "./routes/builder";
 import cartsRouter from "./routes/carts";
-import couponsRouter from "./routes/coupons";
+import supportRouter from "./routes/support";
 import internalRouter from "./routes/internal";
 
 export function createApp() {
@@ -16,8 +17,9 @@ export function createApp() {
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
   app.use("/api/products", productsRouter);
+  app.use("/api/builder", builderRouter);
   app.use("/api/carts", cartsRouter);
-  app.use("/api/coupons", couponsRouter);
+  app.use("/api/support", supportRouter);
   app.use("/api/internal", internalRouter);
 
   app.use((_req, res) => {

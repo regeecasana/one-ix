@@ -3,9 +3,10 @@ import { prisma } from "../db";
 import { HttpError } from "../errors";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { internalAuth } from "../middleware/internalAuth";
-import { serializeCart, serializeCoupon, serializeOrder, serializeProduct } from "../serializers";
-import { issueCouponForCart } from "../services/couponService";
-import { runAbandonedCartSweep } from "../jobs/abandonedCartSweep";
+import { serializeCustomer } from "../serializers";
+import { buildCustomerProfile } from "../services/profileService";
+import { grantGoodwillPoints } from "../services/pointsService";
+import { runCdpSweep } from "../jobs/cdpSweep";
 
 const router = Router();
 
@@ -14,70 +15,47 @@ const router = Router();
 router.use(internalAuth);
 
 router.get(
-  "/carts/:cartId/summary",
+  "/tickets/:ticketId/customer",
   asyncHandler(async (req, res) => {
-    const cart = await prisma.cart.findUnique({
-      where: { id: req.params.cartId },
-      include: { items: true, customer: true },
-    });
-    if (!cart) throw new HttpError(404, "cart_not_found");
-
-    const productIds = [...new Set(cart.items.map((item) => item.productId))];
-    const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
-    const productMap = Object.fromEntries(products.map((p) => [p.id, serializeProduct(p)]));
-
-    const activeCouponRow = await prisma.coupon.findFirst({
-      where: { cartId: cart.id, status: "active" },
+    const ticket = await prisma.supportTicket.findFirst({
+      where: { zendeskTicketId: req.params.ticketId },
       orderBy: { createdAt: "desc" },
     });
-    // Checked live against expiresAt, not just the status column -- see
-    // docs/api-spec.md on why background jobs alone aren't the source of truth.
-    const activeCoupon =
-      activeCouponRow && activeCouponRow.expiresAt.getTime() > Date.now()
-        ? serializeCoupon(activeCouponRow)
-        : null;
-
-    const order = await prisma.order.findUnique({ where: { cartId: cart.id } });
-
-    res.json({
-      cart: serializeCart(cart),
-      customerEmail: cart.customer?.email ?? null,
-      products: productMap,
-      activeCoupon,
-      order: order ? serializeOrder(order) : null,
-    });
-  })
-);
-
-router.post(
-  "/carts/:cartId/coupons",
-  asyncHandler(async (req, res) => {
-    const coupon = await issueCouponForCart({
-      cartId: req.params.cartId,
-      percentOff: req.body?.percentOff ? Number(req.body.percentOff) : undefined,
-      ttlMinutes: req.body?.ttlMinutes ? Number(req.body.ttlMinutes) : undefined,
-      zendeskTicketId: req.body?.ticketId ? String(req.body.ticketId) : null,
-    });
-    res.status(201).json(serializeCoupon(coupon));
+    if (!ticket) throw new HttpError(404, "customer_not_found_for_ticket");
+    res.json({ customerId: ticket.customerId });
   })
 );
 
 router.get(
-  "/tickets/:ticketId/cart",
+  "/customers/:customerId/profile",
   asyncHandler(async (req, res) => {
-    const event = await prisma.abandonedCartEvent.findFirst({
-      where: { zendeskTicketId: req.params.ticketId },
-      orderBy: { detectedAt: "desc" },
+    const profile = await buildCustomerProfile(req.params.customerId);
+    res.json(profile);
+  })
+);
+
+router.post(
+  "/customers/:customerId/points",
+  asyncHandler(async (req, res) => {
+    const amount = Number(req.body?.amount);
+    const reason = String(req.body?.reason ?? "").trim();
+    if (!reason) throw new HttpError(400, "reason_required");
+
+    const customer = await grantGoodwillPoints({
+      customerId: req.params.customerId,
+      amount,
+      reason,
+      zendeskTicketId: req.body?.zendeskTicketId ? String(req.body.zendeskTicketId) : null,
     });
-    if (!event) throw new HttpError(404, "cart_not_found_for_ticket");
-    res.json({ cartId: event.cartId });
+
+    res.json(serializeCustomer(customer));
   })
 );
 
 router.post(
   "/demo/force-sweep",
   asyncHandler(async (_req, res) => {
-    const result = await runAbandonedCartSweep();
+    const result = await runCdpSweep();
     res.json(result);
   })
 );

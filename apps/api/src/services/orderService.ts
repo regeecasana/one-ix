@@ -3,34 +3,25 @@ import { prisma } from "../db";
 import { HttpError } from "../errors";
 import { computeSubtotalCents } from "./cartService";
 import { etherealEmailProvider } from "../email/ethereal";
-import { orderConfirmationEmail } from "../email/templates";
-import { addTicketComment } from "../zendesk/client";
+import { activationConfirmationEmail } from "../email/templates";
 
-export async function completeCheckout(cartId: string, couponCode?: string): Promise<PrismaOrder> {
+// Awarded only if this activation follows a CDP nudge (Cart.remindedAt is
+// set) -- the base 5,000 for OTP consent was already granted at "save my
+// setup" time, in identityService.ts. See docs/data-model.md invariants.
+const NUDGE_COMPLETION_BONUS_POINTS = 5000;
+
+export async function completeCheckout(cartId: string): Promise<PrismaOrder> {
   const cart = await prisma.cart.findUnique({
     where: { id: cartId },
     include: { items: { include: { product: true } }, customer: true },
   });
   if (!cart) throw new HttpError(404, "cart_not_found");
   if (cart.status === "converted") throw new HttpError(409, "cart_already_converted");
-  if (!cart.customerId || !cart.customer) throw new HttpError(400, "checkout_not_started");
+  if (!cart.customerId || !cart.customer) throw new HttpError(400, "setup_not_saved");
   if (cart.items.length === 0) throw new HttpError(400, "cart_is_empty");
 
   const subtotalCents = computeSubtotalCents(cart.items);
-
-  let coupon = null;
-  if (couponCode) {
-    coupon = await prisma.coupon.findUnique({ where: { code: couponCode } });
-    const isValid =
-      coupon &&
-      coupon.cartId === cart.id &&
-      coupon.status === "active" &&
-      coupon.expiresAt.getTime() > Date.now();
-    if (!isValid) throw new HttpError(400, "invalid_coupon");
-  }
-
-  const discountCents = coupon ? Math.round((subtotalCents * coupon.percentOff) / 100) : 0;
-  const totalCents = subtotalCents - discountCents;
+  const pointsEarned = cart.remindedAt ? NUDGE_COMPLETION_BONUS_POINTS : 0;
 
   const order = await prisma.$transaction(async (tx) => {
     const created = await tx.order.create({
@@ -39,9 +30,8 @@ export async function completeCheckout(cartId: string, couponCode?: string): Pro
         customerId: cart.customerId!,
         status: "paid",
         subtotalCents,
-        discountCents,
-        totalCents,
-        couponId: coupon?.id,
+        totalCents: subtotalCents,
+        pointsEarned,
         items: {
           create: cart.items.map((item) => ({
             productId: item.productId,
@@ -61,25 +51,17 @@ export async function completeCheckout(cartId: string, couponCode?: string): Pro
 
     await tx.cart.update({ where: { id: cart.id }, data: { status: "converted" } });
 
-    if (coupon) {
-      await tx.coupon.update({ where: { id: coupon.id }, data: { status: "redeemed" } });
+    if (pointsEarned > 0) {
+      await tx.customer.update({
+        where: { id: cart.customerId! },
+        data: { pointsBalance: { increment: pointsEarned } },
+      });
     }
 
     return created;
   });
 
-  const event = await prisma.abandonedCartEvent.findFirst({ where: { cartId: cart.id } });
-  if (event) {
-    await prisma.abandonedCartEvent.update({ where: { id: event.id }, data: { status: "recovered" } });
-    if (event.zendeskTicketId) {
-      await addTicketComment(
-        event.zendeskTicketId,
-        `Order ${order.id} placed -- cart recovered ($${(totalCents / 100).toFixed(2)}).`
-      );
-    }
-  }
-
-  const { subject, text } = orderConfirmationEmail({
+  const { subject, text } = activationConfirmationEmail({
     orderId: order.id,
     items: cart.items.map((item) => ({
       name: item.product.name,
@@ -87,14 +69,14 @@ export async function completeCheckout(cartId: string, couponCode?: string): Pro
       unitPriceCents: item.unitPriceCents,
     })),
     subtotalCents,
-    discountCents,
-    totalCents,
+    totalCents: subtotalCents,
+    pointsEarned,
   });
 
   try {
     await etherealEmailProvider.send({ to: cart.customer.email, subject, text });
   } catch (err) {
-    console.error("[email] failed to send order confirmation", err);
+    console.error("[email] failed to send activation confirmation", err);
   }
 
   return order;

@@ -1,9 +1,9 @@
 import { env } from "../env";
 
-// Ticket <-> cart resolution is handled via our own AbandonedCartEvent table
+// Ticket <-> customer resolution is handled via our own SupportTicket table
 // (see routes/internal.ts), not a Zendesk custom field -- that would require
 // a field ID configured per Zendesk account, which we don't have at scaffold
-// time. The cart_<id> tag below is just for a human glancing at the ticket.
+// time. The customer_<id> tag below is just for a human glancing at the ticket.
 
 function isConfigured(): boolean {
   return Boolean(env.zendesk.subdomain && env.zendesk.email && env.zendesk.apiToken);
@@ -18,14 +18,14 @@ function baseUrl(): string {
   return `https://${env.zendesk.subdomain}.zendesk.com/api/v2`;
 }
 
-export async function createAbandonedCartTicket(params: {
+export async function createTicket(params: {
   requesterEmail: string;
   subject: string;
   body: string;
-  cartId: string;
+  customerId: string;
 }): Promise<string | null> {
   if (!isConfigured()) {
-    console.warn(`[zendesk] not configured -- skipping ticket creation for cart ${params.cartId}`);
+    console.warn(`[zendesk] not configured -- skipping ticket creation for customer ${params.customerId}`);
     return null;
   }
 
@@ -38,7 +38,7 @@ export async function createAbandonedCartTicket(params: {
           subject: params.subject,
           comment: { body: params.body },
           requester: { email: params.requesterEmail },
-          tags: ["abandoned_cart", `cart_${params.cartId}`],
+          tags: ["xlsmart_support", `customer_${params.customerId}`],
         },
       }),
     });

@@ -3,17 +3,6 @@
 
 export type CartStatus = "active" | "abandoned" | "converted";
 
-export type CouponStatus = "active" | "redeemed" | "expired";
-
-export type CouponIssuedBy = "agent" | "system";
-
-export type AbandonedCartEventStatus =
-  | "detected"
-  | "ticket_created"
-  | "coupon_sent"
-  | "recovered"
-  | "expired_unused";
-
 export interface Product {
   id: string;
   name: string;
@@ -36,21 +25,14 @@ export interface Cart {
   customerId: string | null;
   status: CartStatus;
   items: CartItem[];
+  utmSource: string | null;
+  utmCampaign: string | null;
+  utmContent: string | null;
+  recommendationReason: string | null;
+  remindedAt: string | null;
   lastActivityAt: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface Coupon {
-  id: string;
-  code: string;
-  cartId: string;
-  percentOff: number;
-  status: CouponStatus;
-  expiresAt: string;
-  issuedBy: CouponIssuedBy;
-  zendeskTicketId: string | null;
-  createdAt: string;
 }
 
 export interface Order {
@@ -59,17 +41,39 @@ export interface Order {
   customerId: string;
   status: "paid";
   subtotalCents: number;
-  discountCents: number;
   totalCents: number;
-  couponId: string | null;
+  pointsEarned: number;
   createdAt: string;
 }
 
-/** What GET /api/internal/carts/:cartId/summary returns to the Zendesk sidebar app. */
-export interface CartSummary {
-  cart: Cart;
-  customerEmail: string | null;
-  products: Record<string, Product>;
-  activeCoupon: Coupon | null;
-  order: Order | null;
+export interface Customer {
+  id: string;
+  email: string;
+  name: string | null;
+  mobileNumber: string | null;
+  pointsBalance: number;
+  createdAt: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  customerId: string;
+  zendeskTicketId: string | null;
+  subject: string;
+  message: string;
+  createdAt: string;
+}
+
+/** Connectivity Builder recommendation, from POST /api/builder/recommend. */
+export interface BuilderRecommendation {
+  productId: string;
+  reason: string;
+}
+
+/** What GET /api/internal/customers/:customerId/profile returns to the Zendesk sidebar app. */
+export interface CustomerProfile {
+  customer: Customer;
+  latestCart: (Cart & { products: Record<string, Product> }) | null;
+  latestOrder: Order | null;
+  supportTickets: SupportTicket[];
 }

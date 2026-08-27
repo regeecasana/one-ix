@@ -1,5 +1,4 @@
-// Draft schema matching docs/data-model.md.
-// Phase 1 implementation work: run `prisma migrate dev` once models below are finalized.
+// Matches docs/data-model.md -- the XLSmart/Ravta telco story.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,13 +10,16 @@ datasource db {
 }
 
 model Customer {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  mobileNumber  String?  @unique
+  pointsBalance Int      @default(0)
+  createdAt     DateTime @default(now())
 
-  carts  Cart[]
-  orders Order[]
+  carts          Cart[]
+  orders         Order[]
+  supportTickets SupportTicket[]
 }
 
 model Product {
@@ -33,17 +35,22 @@ model Product {
 }
 
 model Cart {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   customerId      String?
-  status          String   @default("active") // active | abandoned | converted
-  lastActivityAt  DateTime @default(now())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  status          String    @default("active") // active | abandoned | converted
+  lastActivityAt  DateTime  @default(now())
+  remindedAt      DateTime? // set once the CDP nudge email is sent
+  utmSource       String?
+  utmCampaign     String?
+  utmContent      String?
+  recommendationReason String?
+  pendingOtpMobile String?  // set by POST .../otp/request, cleared on verify
+  pendingOtpCode   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  customer Customer? @relation(fields: [customerId], references: [id])
+  customer Customer?  @relation(fields: [customerId], references: [id])
   items    CartItem[]
-  coupons  Coupon[]
-  events   AbandonedCartEvent[]
   order    Order?
 }
 
@@ -59,19 +66,17 @@ model CartItem {
 }
 
 model Order {
-  id             String   @id @default(cuid())
-  cartId         String   @unique
-  customerId     String
-  status         String   @default("paid")
-  subtotalCents  Int
-  discountCents  Int      @default(0)
-  totalCents     Int
-  couponId       String?
-  createdAt      DateTime @default(now())
+  id            String   @id @default(cuid())
+  cartId        String   @unique
+  customerId    String
+  status        String   @default("paid")
+  subtotalCents Int
+  totalCents    Int
+  pointsEarned  Int      @default(0)
+  createdAt     DateTime @default(now())
 
   cart     Cart        @relation(fields: [cartId], references: [id])
   customer Customer    @relation(fields: [customerId], references: [id])
-  coupon   Coupon?     @relation(fields: [couponId], references: [id])
   items    OrderItem[]
 }
 
@@ -86,28 +91,13 @@ model OrderItem {
   product Product @relation(fields: [productId], references: [id])
 }
 
-model Coupon {
-  id               String    @id @default(cuid())
-  code             String    @unique
-  cartId           String
-  percentOff       Int
-  status           String    @default("active") // active | redeemed | expired
-  expiresAt        DateTime
-  issuedBy         String // agent | system
-  zendeskTicketId  String?
-  createdAt        DateTime  @default(now())
-
-  cart   Cart    @relation(fields: [cartId], references: [id])
-  orders Order[]
-}
-
-model AbandonedCartEvent {
+model SupportTicket {
   id              String   @id @default(cuid())
-  cartId          String
-  detectedAt      DateTime @default(now())
+  customerId      String
   zendeskTicketId String?
-  status          String   @default("detected")
-  // detected | ticket_created | coupon_sent | recovered | expired_unused
+  subject         String
+  message         String
+  createdAt       DateTime @default(now())
 
-  cart Cart @relation(fields: [cartId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
 }
