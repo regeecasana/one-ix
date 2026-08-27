@@ -12,10 +12,9 @@ very end.
 
 - `api`: **done** — products, carts, cart items, checkout (mock payment,
   real `Order` rows).
-- `storefront`: still a scaffold — catalog, product detail, cart, checkout
-  UI not yet built.
-- Demoable once storefront exists: browse → add to cart → check out → order
-  confirmation email.
+- `storefront`: **done** — catalog, product detail, cart ("Manifest"),
+  checkout ("Dispatch") UI. No accounts/signup — guest checkout only.
+- Demoable now: browse → add to cart → check out → order confirmation email.
 
 ## Phase 2 — Abandonment detection + Zendesk ticket
 
@@ -32,10 +31,13 @@ very end.
   (checked live against `expiresAt`, not just the status column).
 - `zendesk-app`: still a scaffold — cart summary view, "Send 20% coupon"
   action, coupon-state display not yet built.
-- `storefront`: still a scaffold — apply-coupon UX at checkout,
-  cart-restore-from-link not yet built.
-- Demoable once storefront + zendesk-app exist: the full primary flow end
-  to end (see [user-stories.md](user-stories.md)).
+- `storefront`: **done** — coupon apply/validate UX at checkout, and
+  `/cart/:cartId?coupon=...` restores the cart and auto-applies the coupon
+  from the recovery email link.
+- Demoable today via the API standing in for the sidebar app (issue a
+  coupon via `POST /api/internal/carts/:id/coupons`, then follow the
+  storefront link by hand); full end-to-end demo needs `zendesk-app` too
+  (see [user-stories.md](user-stories.md)).
 
 ## Phase 4 — Supporting scenarios + polish
 

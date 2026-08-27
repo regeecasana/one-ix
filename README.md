@@ -70,11 +70,12 @@ Each app has its own README. The full design lives in `docs/`:
 
 ## Status
 
-`apps/api` is fully implemented: products, carts, checkout, coupons, the
-abandoned-cart sweep, coupon expiry, Zendesk ticket/comment calls, and
-email are all working end to end (verified against both plain `npm run dev`
-and the Docker stack in `infra/`). `apps/storefront` and `apps/zendesk-app`
-are still scaffolds with no UI built yet — see
+`apps/api` and `apps/storefront` are fully implemented and verified end to
+end in a real browser: browse → add to cart → checkout, and the full
+abandoned-cart recovery loop (abandon → issue a coupon → follow the
+recovery link → cart restores with the coupon auto-applied → discounted
+checkout). No accounts/signup — checkout is guest-only by design.
+`apps/zendesk-app` is still a scaffold with no UI — see
 [docs/roadmap.md](docs/roadmap.md) for what's left.
 
 ## Quick start

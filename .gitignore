@@ -15,3 +15,6 @@ coverage/
 # Zendesk app build output
 apps/zendesk-app/dist/
 apps/zendesk-app/tmp/
+
+# Playwright MCP screenshots, when saved without an explicit path
+.playwright-mcp/
