@@ -1,91 +1,78 @@
 # User Stories / Demo Script
 
-Persona: **Ravta**, an XLSmart customer — a digital creator, part of a
+Persona: **Ravta**, an XLSmart customer -- a digital creator, part of a
 multi-brand household. Two sides of the demo: Ravta herself, and the
-**support agent** who eventually helps her.
+**support agent** who watches her activity and steps in.
 
-This replaced an earlier, simpler abandoned-cart-and-coupon script. That
-mechanic still exists underneath (a saved-but-not-activated setup is still
-detected and nudged the same way a cart was), but the story is now telco-
-specific and has a second, independent act: a proactive support contact.
+This replaces the previous OTP/points-based script. The mechanics changed
+again: identity is now just an email address (captured by a timed popup,
+no phone/OTP), every meaningful interaction is logged live to a Zendesk
+ticket as it happens, and recovery is a time-limited **voucher** an agent
+sends by hand -- not an automated points-bonus email.
 
-## Act 1 — Acquisition, the Connectivity Builder, and the CDP nudge
+## The flow
 
-1. Ravta is scrolling TikTok and sees an XL **Creator Package** campaign ad.
-   She clicks the CTA.
-2. She lands on the Creator Package landing page. The page already knows
-   *why* she's there — source = TikTok, campaign = Creator Package, content
-   context = creator use case — captured from the link's query params, not
-   asked again.
-3. She works through the **Connectivity Builder**: a couple of quick
-   questions (how she uses her connection, how many devices need coverage).
-   The page recommends **one specific plan**, with a plain-language reason
-   tied to her answers — not a generic plan list.
-4. She clicks **"Save my setup."** The page asks for her mobile number,
-   consent, and an OTP — in exchange for **5,000 XL Points**.
-   - Before the OTP, all we have is an anonymous session: her builder
-     answers and browsing signals, no identity yet.
-   - The OTP verifies the mobile number and triggers **identity
-     resolution** — matching (or creating) a `Customer` record, merging the
-     anonymous signals into it. Anonymous behavior + known customer record
-     = one **Unified Profile**.
-5. Ravta doesn't activate right away. She saves the setup and decides to
-   think about it later. No `Order` is created.
-6. An hour later (minutes, in the demo), the CDP sweep notices: setup
-   saved, no purchase, time elapsed — high intent, not yet converted. It
-   sends a personalized reminder by email:
-   > "Hi Ravta 👋 Your Creator Setup is still saved. Complete your
-   > activation today and receive another 5,000 XL points."
-   > **Continue My Setup**
-7. Ravta clicks through, her setup is right where she left it, and she
-   activates. A real `Order` is created (mock payment), and because this
-   activation followed a CDP nudge, she gets the completion bonus —
-   10,000 XL Points total for this setup.
-
-## Act 2 — A support contact, and what the agent sees
-
-1. Later, before an important livestream, Ravta hits a network issue and
-   emails support. This is **unrelated** to the setup/activation above —
-   she's not asking about a discount, she has a problem *right now*.
-2. That email becomes a Zendesk ticket. Instead of the agent having to ask
-   "what's your account number," the ticket sidebar app immediately shows
-   Ravta's **Unified Profile**: which campaign brought her in, her saved
-   setup and recommended plan, her activation history, her current XL
-   Points balance, and any prior support contacts.
-3. There's no automated diagnosis step in this build — the ticket goes
-   straight to a human agent, who already has full context the moment they
-   open it.
-4. If the agent resolves the issue and wants to make it right, they can
-   grant **goodwill points** from the sidebar app in one click — the same
-   "single agent action" beat the coupon button used to be, just pointed at
-   a different, more natural moment (compensating a real problem, not
-   nudging a sale).
-5. During her livestream, Ravta mentions the smooth resolution — the loop
-   closes back to the TikTok audience that brought her in. (Narrative only;
-   nothing to build for this beat.)
+1. Ravta lands on the XLSmart site. The **Connectivity Builder** walks her
+   through three quick questions -- what she uses her connection for
+   (multi-select), how many devices need coverage, what matters most to
+   her -- and recommends **one** plan with a plain-language reason, not a
+   generic list.
+2. **30 seconds** after she first arrives (regardless of what she's done),
+   a popup asks for her email. The moment she submits it:
+   - `api` resolves (or creates) her `Customer` record by email.
+   - A Zendesk ticket is created for her -- this is now her running
+     activity log, not a "something went wrong" ticket.
+   - Anything she did in those first 30 seconds (viewed a plan, answered a
+     builder question) gets flushed to the ticket as catch-up comments, so
+     the agent sees the whole session from the start.
+3. From this point on, **every meaningful interaction is posted to the
+   ticket as a comment, live**: "Ravta viewed GoSurf799", "Ravta added
+   GoSurf799 to her setup", "Ravta answered: uses connection for
+   Livestreaming, Uploading Content", "Ravta closed the tab" (best-effort
+   -- see below), "Ravta returned to her setup", "Ravta activated".
+4. Ravta adds a plan to her setup ("Save My Setup" -- this is the
+   add-to-cart equivalent) but closes the tab before activating.
+5. The agent, watching the ticket, reads the comment trail and recognizes
+   the pattern: added to setup, then went quiet. They open the sidebar
+   app, see the plan she was looking at, and check whether a voucher
+   applies to it.
+6. The agent sends a **20% voucher**, scoped to that plan, **expiring in
+   30 minutes** -- one click from the sidebar app. This emails Ravta the
+   code and posts a ticket comment recording it.
+7. If Ravta returns and activates with the voucher before it expires: the
+   ticket logs "Ravta activated with voucher SAVE20-XXXX applied," and the
+   agent closes the ticket. Happy ending.
+8. If Ravta ignores the email and the voucher expires: the next day, the
+   agent reopens the ticket, sends a **new voucher with an extended
+   lifespan**, and waits again. (In the demo, "the next day" is just the
+   agent clicking "resend" again -- see [demo-setup.md](demo-setup.md) for
+   how real time gets compressed.)
+9. If she ignores the second one too, the agent closes the ticket
+   unresolved.
 
 ## Supporting scenarios to also capture
 
-- **Happy path, no nudge needed.** Ravta builds a setup and activates
-  immediately. No CDP email, no points bonus beyond the initial 5,000.
-- **Nudge sent, never returns.** The CDP sweep sends the reminder once
-  (`Cart.remindedAt` set) and doesn't re-send. Setup stays saved,
-  un-activated, indefinitely — no expiry pressure the way the old coupon
-  had one, since points aren't time-limited.
-- **Multi-item setup.** A plan plus an add-on (e.g. a 5G speed boost) —
-  the Unified Profile and the nudge email both need to summarize more than
-  one line item.
-- **Support contact with no prior setup.** Someone can email support
-  without ever having gone through the builder — identity resolution still
-  finds or creates a `Customer` by email, the profile is just thinner.
-- **Agent declines to grant points.** Viewing the ticket and its context is
-  independent of granting points — that's always an explicit, optional
-  agent action, never automatic.
-- **Duplicate support contact.** The same customer emails again later — a
-  second, independent `SupportTicket`, not merged into the first.
+- **Happy path, no voucher needed.** Ravta finishes the builder and clicks
+  "Activate Now" directly -- no setup-saving detour, no voucher. The
+  interaction log still shows the full builder-answer trail leading up to
+  it.
+- **Multiple interactions before email capture.** Ravta looks at two
+  different plans in her first 30 seconds; both show up as catch-up
+  comments once she submits her email, in the order they happened.
+- **Voucher expires unused, no next-day follow-up given.** Agent can just
+  close the ticket -- sending a follow-up is always an explicit choice,
+  never automatic.
+- **Voucher applied after expiry.** Checkout rejects it server-side (not
+  just hidden client-side) -- Ravta can still activate at full price.
+- **Tab-close detection is best-effort.** It relies on the browser's
+  `visibilitychange`/`pagehide` events, which aren't 100% reliable (killed
+  tabs, mobile app-switches). When it doesn't fire, the log simply stops --
+  which is itself a legible signal to the agent ("went quiet after adding
+  to setup"), even without an explicit close event.
 
 ## Demo pacing note
 
-Same idea as before: the CDP threshold and sweep interval are
-env-configurable, and there's a demo-only "force sweep now" endpoint so Act
-1 doesn't require an actual hour's wait. See [demo-setup.md](demo-setup.md).
+The 30-second popup delay and voucher TTL are both short by design so the
+whole loop is watchable live. See [demo-setup.md](demo-setup.md) for the
+env vars and the internal endpoint that lets an agent simulate "checking
+back the next day" without an actual day passing.

@@ -1,73 +1,55 @@
 # Zendesk Ticket Sidebar App
 
 `apps/zendesk-app` is a **ticket sidebar location** app built with the
-Zendesk Apps Framework (ZAF) v2 and React, developed/served locally with the
-Zendesk Apps Tools (`zat`) CLI and packaged as a `.zip` for install into a
-Zendesk trial/sandbox instance.
+Zendesk Apps Framework (ZAF) v2 and React, developed/served locally with
+the Zendesk Apps Tools (`zat`) CLI and packaged as a `.zip` for install
+into a Zendesk trial/sandbox instance.
 
 ## Where it lives
 
-Zendesk apps declare their mount point in `manifest.json`:
-
 ```json
-{
-  "location": {
-    "support": {
-      "ticket_sidebar": "assets/iframe.html"
-    }
-  }
-}
+{ "location": { "support": { "ticket_sidebar": "assets/iframe.html" } } }
 ```
-
-The app only ever renders inside the ticket sidebar — it has no other
-surface.
 
 ## What it needs from the host ticket
 
-Tickets in this build only ever come from one place: Ravta emailing
-support (`POST /api/support/tickets`). That call creates a `SupportTicket`
-row mapping `zendeskTicketId → customerId` at creation time, so the app
-just needs the ticket id (`client.get('ticket.id')`) and calls
-`GET /api/internal/tickets/:ticketId/customer` to resolve it — no custom
-field or tag parsing needed.
+Every ticket in this build is created by `POST /api/identify` the first
+time a customer's email is captured, and reused for all their subsequent
+interaction comments until an agent closes it (see
+[data-model.md](data-model.md)). The app calls
+`GET /api/internal/tickets/:ticketId/customer` with `client.get('ticket.id')`
+to resolve the customer -- no custom field or tag parsing needed.
 
 ## UI (single view, no routing needed)
 
-1. **Loading** — while the customer id and then
+1. **Loading** -- while the customer id and then
    `GET /api/internal/customers/:customerId/profile` resolve.
-2. **Unified Profile** — the whole point of this app:
-   - How they found XLSmart (campaign/source, if any).
-   - Their saved setup: recommended plan + why, and whether it's been
-     activated.
-   - Current XL Points balance.
-   - Recent support contacts.
-3. **Grant goodwill points** — an amount field (a couple of preset buttons,
-   e.g. 1,000 / 2,000 / 5,000, plus a reason) and a single **"Grant
-   points"** action. Calls
-   `POST /api/internal/customers/:customerId/points`, then re-fetches the
-   profile so the new balance shows immediately. This is the one
-   agent-facing action the demo hinges on — same "one click, no form
-   beyond a reason" shape the old coupon button had.
+2. **Profile** -- email, most recent setup (items, recommendation reason),
+   a short recent-activity list (the same events already visible as
+   ticket comments, surfaced here too so the agent doesn't have to scroll
+   the ticket to see the last few), and any active voucher.
+3. **Issue/resend a voucher**:
+   - *No voucher issued* -> pick the product (defaults to the most recent
+     setup item) and click **"Send 20% voucher"**.
+   - *Voucher active* -> code, expiry countdown.
+   - *Voucher expired, unused* -> **"Resend with extended expiry"** -- this
+     is what "check back the next day" looks like as a click.
+   - *Order placed* -> "Activated -- order #... for $...", no further
+     action needed.
+4. **Close ticket** -- always available, always an explicit click. Clears
+   `Customer.activeTicketId` so the next interaction opens a fresh ticket.
 
-There's no AI-diagnosis step in this build — the ticket goes straight to a
-human agent, and the value this app adds is *not having to ask who Ravta
-is*, not automating the resolution itself.
+Both voucher actions and the close action are one click each, no forms
+beyond picking a product -- same "keep the agent's job to one deliberate
+action" principle as every earlier version of this sidebar app design.
 
 ## Auth
 
-The app is configured (via `secure_settings` / app installation parameters,
-not hardcoded) with:
-
-- `apiBaseUrl` — where `api` is reachable.
-- `internalToken` — the shared secret sent as `X-Internal-Token` on every
-  call to `api`'s internal endpoints.
-
-Both are set once at app install time in the Zendesk admin UI (Manage → Apps
-→ your app → Settings), not committed to source.
+`apiBaseUrl` and `internalToken` (sent as `X-Internal-Token`), set once at
+app install time via Zendesk's app installation parameters, not committed
+to source.
 
 ## Local development
-
-Standard ZAF loop:
 
 ```
 cd apps/zendesk-app
@@ -75,12 +57,10 @@ npm run build      # bundles the React app into assets/
 zat server          # serves the app locally
 ```
 
-Then in a Zendesk trial account, enable "local apps" in Admin Center and
-point it at the `zat server` URL to see live changes in a real ticket
-sidebar without repackaging on every change.
+Enable "local apps" in a Zendesk trial account's Admin Center and point it
+at the `zat server` URL to iterate against a real ticket sidebar.
 
 ## Packaging
 
-`zat package` produces the `.zip` uploaded via Admin Center → Apps →
-Manage → Upload private app, for anyone re-running the demo without a local
-dev server.
+`zat package` produces the `.zip` uploaded via Admin Center -> Apps ->
+Manage -> Upload private app.

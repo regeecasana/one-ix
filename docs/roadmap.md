@@ -1,71 +1,60 @@
 # Build Roadmap
 
-Phased so there's a demoable slice at the end of each phase, not just at the
-very end. This roadmap was rewritten when the demo moved from a generic
-e-commerce abandoned-cart story to the XLSmart/Ravta telco story — see
-[user-stories.md](user-stories.md) for why.
+Phased so there's a demoable slice at the end of each phase. Rewritten
+again when the demo moved from the OTP/points story to the interaction-
+logging/voucher story -- see [user-stories.md](user-stories.md) for why.
 
-## Phase 0 — Scaffolding
+## Phase 0 -- Scaffolding
 
-- Monorepo structure (`apps/*`, `packages/shared`), docs. Done.
+Monorepo structure, docs. Done.
 
-## Phase 1 — Catalog + activation happy path
+## Phase 1 -- Catalog + activation happy path
 
-- `api`: products (connectivity plans/add-ons), carts ("setup"), cart
-  items, checkout/complete ("activation" — mock payment, real `Order`
-  rows).
+- `api`: products, carts ("setup"), checkout/complete ("activation").
 - `storefront`: catalog, product detail, setup, activation UI.
-- Demoable: browse plans → build a setup → activate → confirmation email.
+- Demoable: browse plans -> build a setup -> activate -> confirmation email.
 
-## Phase 2 — Connectivity Builder + identity resolution
+## Phase 2 -- Connectivity Builder + email identification
 
-- `api`: `POST /api/builder/recommend` (rules-based recommendation),
-  `POST /api/carts/:id/otp/request` + `.../otp/verify` (mock OTP,
-  find-or-create `Customer` by mobile/email, +5,000 points).
-- `storefront`: the Connectivity Builder quiz, mobile/OTP capture UI,
-  "save my setup" flow, campaign-attribution capture from landing-page
-  query params.
-- Demoable: land from a campaign link → answer the builder → get a
-  recommended plan with a reason → save setup with mobile+OTP → see points
-  awarded.
+- `api`: `POST /api/builder/recommend` (3-input rules engine), `POST
+  /api/identify` (find-or-create by email, creates the per-customer
+  ticket on first identification, flushes buffered pre-identification
+  events).
+- `storefront`: the 3-step builder matching the brief's mockups, the
+  30-second email popup, campaign-attribution capture.
+- Demoable: answer the builder -> get one recommended plan with a reason
+  -> 30 seconds in, the email popup appears -> submit -> a ticket exists.
 
-## Phase 3 — CDP nudge
+## Phase 3 -- Live interaction logging
 
-- `api`: the CDP sweep job (saved, no purchase, high intent → email nudge,
-  `remindedAt` set, no ticket), demo force-sweep endpoint, the completion
-  bonus on activation.
-- `storefront`: `/setup/:cartId` — the landing target for the nudge email
-  link, restoring the setup.
-- Demoable: save a setup, don't activate, force-sweep → nudge email
-  arrives → click through → activate → 10,000 points total.
+- `api`: `POST /api/customers/:id/interactions`, mirrored to the active
+  ticket as a comment.
+- `storefront`: instrumented at every touchpoint named in
+  [user-stories.md](user-stories.md) (view plan, add to setup, answer a
+  builder step, tab-close best-effort, return to setup, activate).
+- Demoable: perform a few actions on the storefront, watch them appear as
+  ticket comments in order.
 
-## Phase 4 — Support contact + sidebar app
+## Phase 4 -- Voucher recovery + sidebar app
 
-- `api`: `POST /api/support/tickets`, the Unified Profile endpoint, the
-  points-grant endpoint, ticket→customer resolution.
-- `zendesk-app`: Unified Profile view, "Grant goodwill points" action —
-  still a scaffold, not yet built.
-- `storefront`: a support-contact form.
-- Demoable today via the API standing in for the sidebar app (submit a
-  support ticket, then call the internal endpoints by hand); full
+- `api`: voucher issue/resend endpoints, voucher validation at checkout,
+  close-ticket endpoint.
+- `zendesk-app`: profile view, issue/resend voucher, close ticket -- still
+  a scaffold, not yet built.
+- `storefront`: voucher application at checkout.
+- Demoable today via the API standing in for the sidebar app; full
   end-to-end demo needs `zendesk-app` too.
 
-## Phase 5 — Deploy to free hosting
+## Phase 5 -- Deploy to free hosting
 
-- Neon project provisioned, `api` deployed to Render (via
-  [../render.yaml](../render.yaml)), `storefront` deployed to Vercel,
-  external scheduler wired up to `force-sweep`, Zendesk app uploaded as a
-  private app against a Zendesk trial instance. See [hosting.md](hosting.md).
+Neon + Render + Vercel + a Zendesk trial instance. See [hosting.md](hosting.md).
 
 ## Explicitly out of scope
 
-- Real payment processing of any kind.
-- Real SMS/OTP delivery — the code is logged server-side, not sent through
-  a carrier gateway.
-- Real user auth (accounts, passwords, sessions beyond a cart id + email).
-- An AI-diagnosis step before human handoff — tickets go straight to a
-  human agent in this build (see [user-stories.md](user-stories.md)).
-- A real CDP product integration — the "CDP" is a sweep job inside `api`.
-- Production-grade job queue (BullMQ/etc.) — `node-cron` in-process is enough
-  at demo scale.
-- Multi-tenant Zendesk support — one Zendesk instance, one internal token.
+- Real payment processing.
+- Real phone/OTP verification -- identity is email-only in this build.
+- Any automated abandonment detection -- recognizing the pattern in the
+  interaction log is the agent's job, not a background job's.
+- Production-grade job queue -- there's no background job in this build
+  at all.
+- Multi-tenant Zendesk support -- one instance, one internal token.

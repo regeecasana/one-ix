@@ -6,7 +6,7 @@ of design choices below — noted inline.
 | Piece | Where | Free tier | Notes |
 |---|---|---|---|
 | `storefront` | **Vercel** | yes, no card required | static Vite/React build, zero-config framework detection |
-| `api` | **Render** (Web Service) | yes, no card required | spins down after ~15 min idle; cold start on the next request. See "Keeping the sweep alive" below |
+| `api` | **Render** (Web Service) | yes, no card required | spins down after ~15 min idle; cold start on the next request. No background jobs in this build, so that's the only consequence -- see [api-spec.md](api-spec.md) |
 | database | **Neon** (Postgres) | yes, no card required | serverless Postgres, scales to zero when idle, wakes automatically on connect — used for both local dev and the hosted demo |
 | email | **Ethereal** (via Nodemailer) | yes, no signup at all | disposable inbox auto-created per run; `api` logs a preview URL for every send |
 | Zendesk ticketing | **Zendesk trial/sandbox** | 14-day free trial | the ticket system itself; the sidebar app is uploaded into it, not hosted separately |
@@ -40,25 +40,6 @@ against a new instance.
 A `render.yaml` blueprint at the repo root captures this so the service can
 be created with **New → Blueprint** instead of clicking through manually —
 see [../render.yaml](../render.yaml).
-
-### Keeping the sweep alive
-
-Render's free web services spin down after ~15 minutes idle and only wake on
-an inbound HTTP request — an in-process `node-cron` timer stops firing while
-the service is asleep. The CDP sweep needs an external nudge to work around
-this: since detecting "saved, no purchase, high intent" *is* the
-timer-driven part (nothing "reads" its way into discovering a cart went
-idle), something has to hit `api` periodically from outside. Point a free
-external scheduler — [cron-job.org](https://cron-job.org) (no account
-limits worth worrying about for a demo) or Render's own Cron Jobs if
-available on your plan — at `POST /api/internal/demo/force-sweep` every
-1–2 minutes. This double-duties as what keeps the free web service from
-fully cold-starting between demo runs.
-
-For a live, hands-on demo (as opposed to "leave it running and let people
-poke at it"), you don't need the external scheduler at all — just hit the
-force-sweep endpoint manually at the right story beat, per
-[demo-setup.md](demo-setup.md).
 
 ## database → Neon
 

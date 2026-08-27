@@ -2,13 +2,11 @@
 
 Two audiences, two trust levels:
 
-- **Public API** (`/api/*`) — called by the storefront. No auth beyond an
-  email/mobile number captured during the flow; this is a demo, not a real
-  account system.
-- **Internal API** (`/api/internal/*`) — called only by the Zendesk sidebar
-  app. Requires a shared secret header (`X-Internal-Token`) that the
-  Zendesk app is configured with at install time. Never exposed to the
-  storefront or the public internet without that header.
+- **Public API** (`/api/*`) -- called by the storefront. No auth beyond an
+  email address; this is a demo, not a real account system.
+- **Internal API** (`/api/internal/*`) -- called only by the Zendesk
+  sidebar app. Requires a shared secret header (`X-Internal-Token`)
+  configured at install time. Never exposed to the storefront.
 
 Money is always integer cents on the wire.
 
@@ -16,50 +14,49 @@ Money is always integer cents on the wire.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/products` | list the catalog (connectivity plans + add-ons) |
+| GET | `/api/products` | list the catalog |
 | GET | `/api/products/:id` | product detail |
-| POST | `/api/builder/recommend` | Connectivity Builder: body `{ usage, devices }` → `{ productId, reason }`. A deterministic rules engine, not a model call — see [architecture.md](architecture.md) |
-| POST | `/api/carts` | create a setup. Body may include `{ utmSource, utmCampaign, utmContent }` captured from the landing page's query params |
-| GET | `/api/carts/:id` | fetch setup contents (also used to restore a setup from the "Continue My Setup" email link) |
-| POST | `/api/carts/:id/items` | add/update a line item (bumps `lastActivityAt`) |
+| POST | `/api/builder/recommend` | Connectivity Builder: body `{ usage: string[], devices, priority }` -> `{ productId, reason }`. A rules engine, not a model call |
+| POST | `/api/carts` | create a setup. Body may include `{ utmSource, utmCampaign, utmContent }` |
+| GET | `/api/carts/:id` | fetch setup contents (also the landing target for the voucher email link) |
+| POST | `/api/carts/:id/items` | add/update a line item |
 | DELETE | `/api/carts/:id/items/:itemId` | remove a line item |
-| POST | `/api/carts/:id/otp/request` | body `{ mobileNumber }`. Generates a 6-digit code, stores it on the cart, "sends" it -- logged to the server console (`[otp] mobile=... code=...`), no real SMS. Always succeeds |
-| POST | `/api/carts/:id/otp/verify` | body `{ email, mobileNumber, otp, name? }`. Verifies the code, resolves identity (find-or-create `Customer` by mobile number or email), links the cart, awards **+5,000 points** — this is "save my setup" |
-| POST | `/api/carts/:id/checkout/complete` | create the `Order` (mock payment, always succeeds); marks cart `converted`. If `Cart.remindedAt` is set, awards a **+5,000 point completion bonus** on top of the order |
-| POST | `/api/support/tickets` | body `{ email, subject, message }`. Resolves the customer by email (found-or-created), creates a Zendesk ticket carrying their Unified Profile as context, records a `SupportTicket` row. This is Ravta's proactive contact — see [user-stories.md](user-stories.md) Act 2 |
+| PATCH | `/api/carts/:id` | set `recommendationReason` |
+| POST | `/api/identify` | body `{ email }`. Find-or-create `Customer`, and if they don't already have an `activeTicketId`, create one and flush any buffered pre-identification events. Returns `{ customerId }` |
+| POST | `/api/customers/:customerId/interactions` | body `{ type, detail }`. Logs one `InteractionEvent` and, if the customer has an `activeTicketId`, posts it as a comment. This is the endpoint behind every "Ravta did X" beat in [user-stories.md](user-stories.md) |
+| GET | `/api/vouchers/:code?customerId=&productId=` | validate a voucher before submitting checkout. Rate-limited, requires both ids -- same reasoning as the old coupon-validation endpoint (a code alone isn't a secret worth exposing as an enumeration oracle) |
+| POST | `/api/carts/:id/checkout/complete` | create the `Order` (mock payment), optionally applying `voucherCode`; marks cart `converted` |
+| POST | `/api/support/tickets` | unchanged from the previous round -- a separate, standalone contact-support flow not yet reconciled with the per-customer activity ticket above |
 
 ## Internal API (Zendesk sidebar app)
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/internal/tickets/:ticketId/customer` | resolve a Zendesk ticket id to its `customerId` via `SupportTicket` |
-| GET | `/api/internal/customers/:customerId/profile` | the **Unified Profile**: customer info, points balance, campaign attribution + recommended plan from their most recent cart, activation history, recent support tickets — what the sidebar app renders |
-| POST | `/api/internal/customers/:customerId/points` | agent action: grant goodwill points. Body `{ amount, reason }`. Updates the balance, sends a notification email, and — if the request came from a ticket context — appends a Zendesk ticket comment |
-| POST | `/api/internal/demo/force-sweep` | demo control: run the CDP sweep immediately instead of waiting for the interval |
+| GET | `/api/internal/tickets/:ticketId/customer` | resolve a ticket to a `customerId` (checks both `Customer.activeTicketId` and `SupportTicket.zendeskTicketId`) |
+| GET | `/api/internal/customers/:customerId/profile` | customer info, latest cart + recommendation context, recent `InteractionEvent`s, active voucher (if any), order history -- what the sidebar app renders |
+| POST | `/api/internal/customers/:customerId/vouchers` | agent action: issue a voucher. Body `{ productId, percentOff?, ttlMinutes? }` (defaults 20 / 30). Emails the customer, posts a ticket comment |
+| POST | `/api/internal/vouchers/:voucherId/resend` | agent action: extend the expiry and resend. Increments `resendCount`, re-emails, posts a comment -- this is "checking back the next day" |
+| POST | `/api/internal/tickets/:ticketId/close` | agent action: closes the ticket via the Zendesk API and clears `Customer.activeTicketId` so their next interaction opens a fresh one |
 
-## Outbound: api → Zendesk
+## Outbound: api -> Zendesk
 
-`api` is the only component with Zendesk credentials (API token). Ticket
-creation now happens on **inbound contact only** (`POST
-/api/support/tickets`), not on any automated detection — the CDP sweep
-never touches Zendesk. The ticket body includes enough of the Unified
-Profile (campaign source, saved setup / recommended plan, points balance,
-activation status) that the agent doesn't have to ask who Ravta is. A
-follow-up comment is posted when an agent grants goodwill points from the
-sidebar app, so the ticket timeline stays readable without opening the app.
+`api` holds the only Zendesk credentials. Two kinds of calls:
 
-## Background jobs (in-process, `node-cron`)
+1. **Create ticket** -- on first `/api/identify` for a customer with no
+   `activeTicketId`. Subject like `Activity — {email}`.
+2. **Add comment** -- on every `InteractionEvent`, and on every agent
+   action (voucher issued, voucher resent, ticket closed). The ticket
+   timeline is the entire point: an agent should be able to read it top to
+   bottom and understand the whole session without opening the sidebar
+   app.
 
-| Job | Interval (default) | Behavior |
-|---|---|---|
-| CDP sweep | every 1 min (demo), configurable via `ABANDON_SWEEP_INTERVAL_MS`; also triggerable via `POST /api/internal/demo/force-sweep` | finds `active` carts with a `customerId`, `remindedAt IS NULL`, and `lastActivityAt` older than `ABANDON_THRESHOLD_MS` — saved, no purchase, high intent. Sends the points-bonus nudge email and sets `remindedAt`. No Zendesk call. |
+Both no-op with a logged warning if `ZENDESK_*` isn't configured, same
+pattern as before.
 
-There's no expiry job anymore — points don't expire the way the old coupon
-did, so there's nothing to sweep on that axis. The one thing worth keeping
-in mind on a free host that can sleep between requests (see
-[hosting.md](hosting.md)): the CDP sweep is timer-driven with no on-read
-fallback, same caveat the old abandoned-cart sweep had — on the hosted
-deployment it's driven by an external scheduler hitting `force-sweep`.
+## Background jobs
 
-See [demo-setup.md](demo-setup.md) for the env vars that make this fast
-enough to watch live.
+None in this round. The previous CDP sweep is gone -- there's no automated
+abandonment detection anymore; recognizing the pattern in the interaction
+log and deciding to act is the agent's job, which is the point of the
+demo. The one thing worth automating for pacing is the 30-second popup
+delay, which is entirely client-side (see [demo-setup.md](demo-setup.md)).
