@@ -12,8 +12,9 @@ very end.
 
 - `api`: **done** — products, carts, cart items, checkout (mock payment,
   real `Order` rows).
-- `storefront`: **done** — catalog, product detail, cart ("Manifest"),
-  checkout ("Dispatch") UI. No accounts/signup — guest checkout only.
+- `storefront`: **done** — "Relay", a telco-themed catalog (SIMs, phones,
+  hotspot, router, earbuds), product detail, cart, checkout ("Activate")
+  UI. No accounts/signup — guest checkout only.
 - Demoable now: browse → add to cart → check out → order confirmation email.
 
 ## Phase 2 — Abandonment detection + Zendesk ticket

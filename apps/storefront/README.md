@@ -1,8 +1,9 @@
 # @oneix/storefront
 
-The public demo e-commerce site: catalog, product detail, cart ("Manifest"),
-checkout ("Dispatch", mock payment), and order confirmation. Also the
-landing target for the abandoned-cart coupon email link
+**Relay** -- the public demo storefront, themed as a telco: SIMs, phones,
+a hotspot, a router, earbuds. Catalog, product detail, cart, checkout
+("Activate", mock payment), and order confirmation. Also the landing target
+for the abandoned-cart coupon email link
 (`/cart/:cartId?coupon=...`, see [../../docs/email-templates.md](../../docs/email-templates.md)).
 
 No accounts, no signup/login -- checkout is guest-only (email capture), by
