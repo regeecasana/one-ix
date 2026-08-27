@@ -24,7 +24,7 @@ Money is always integer cents on the wire.
 | DELETE | `/api/carts/:id/items/:itemId` | remove an item |
 | POST | `/api/carts/:id/checkout/start` | capture the customer email against the cart, bumps `lastActivityAt` — this is the "started checkout" signal the abandonment story hinges on |
 | POST | `/api/carts/:id/checkout/complete` | create the `Order` (mock payment — always succeeds), optionally applying `couponCode`; marks cart `converted` |
-| GET | `/api/coupons/:code` | validate a coupon code against a cart before submitting checkout (for inline "apply coupon" UX) |
+| GET | `/api/coupons/:code?cartId=...` | validate a coupon code against a cart before submitting checkout (for inline "apply coupon" UX). `cartId` is required and rate-limited (20/min/IP) -- a coupon code alone is only ~48 bits of entropy, not a secret worth exposing as a bare enumeration oracle |
 
 ## Internal API (Zendesk sidebar app + Zendesk webhook receiver)
 
