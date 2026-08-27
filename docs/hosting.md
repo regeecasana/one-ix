@@ -45,24 +45,15 @@ see [../render.yaml](../render.yaml).
 
 Render's free web services spin down after ~15 minutes idle and only wake on
 an inbound HTTP request — an in-process `node-cron` timer stops firing while
-the service is asleep. Two things make this a non-issue rather than a
-correctness bug:
-
-1. **Coupon expiry is checked on read, not only on a timer.** Anywhere a
-   coupon's status matters (checkout validation, the sidebar app's summary
-   endpoint), `api` compares `expiresAt` to `now()` live, rather than trusting
-   a `status` column that a sleeping process failed to flip. The background
-   job that flips `expired` in the database is a nice-to-have for ticket
-   comments/reporting, not the source of truth.
-2. **The abandoned-cart sweep needs an external nudge.** Since detecting
-   abandonment *is* the timer-driven part (nothing "reads" its way into
-   discovering a cart went idle), something has to hit `api` periodically
-   from outside. Point a free external scheduler —
-   [cron-job.org](https://cron-job.org) (no account limits worth worrying
-   about for a demo) or Render's own Cron Jobs if available on your plan —
-   at `POST /api/internal/demo/force-sweep` every 1–2 minutes. This
-   double-duties as what keeps the free web service from fully cold-starting
-   between demo runs.
+the service is asleep. The CDP sweep needs an external nudge to work around
+this: since detecting "saved, no purchase, high intent" *is* the
+timer-driven part (nothing "reads" its way into discovering a cart went
+idle), something has to hit `api` periodically from outside. Point a free
+external scheduler — [cron-job.org](https://cron-job.org) (no account
+limits worth worrying about for a demo) or Render's own Cron Jobs if
+available on your plan — at `POST /api/internal/demo/force-sweep` every
+1–2 minutes. This double-duties as what keeps the free web service from
+fully cold-starting between demo runs.
 
 For a live, hands-on demo (as opposed to "leave it running and let people
 poke at it"), you don't need the external scheduler at all — just hit the

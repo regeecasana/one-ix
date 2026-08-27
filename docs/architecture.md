@@ -2,13 +2,22 @@
 
 ## Goal
 
-A self-contained demo that shows an **abandoned-cart recovery loop** end to end:
-a shopper abandons a cart on a demo storefront, the system detects it and opens
-a Zendesk ticket, a support agent uses a custom **ticket sidebar app** to issue
-a time-limited coupon, and the shopper uses that coupon to complete the purchase.
+A self-contained demo for a telco (XLSmart), following one customer —
+**Ravta** — through two independent acts:
 
-Everything is real except money movement: checkout produces a genuine order
-record in the backend, but no payment processor is involved.
+1. **Acquisition + CDP nudge.** She lands from a TikTok campaign, builds a
+   personalized connectivity setup, saves it without activating, and gets
+   nudged back with an XL-Points bonus once a simulated CDP detects high
+   intent and no purchase.
+2. **Proactive support contact.** Separately, she emails support about a
+   network issue. The ticket carries her full Unified Profile, so the agent
+   never has to ask who she is — and can grant goodwill points in one click.
+
+Everything is real except money movement and the OTP/SMS: activation
+produces a genuine order record in the backend, but no payment processor is
+involved, and the "OTP" is a demo-only code logged to the console rather
+than sent by real SMS. See [user-stories.md](user-stories.md) for the full
+script and [hosting.md](hosting.md) note on what's simulated vs. real.
 
 ## Components
 
@@ -16,11 +25,10 @@ record in the backend, but no payment processor is involved.
 ┌──────────────────┐        ┌──────────────────────┐        ┌────────────────────┐
 │   storefront      │  REST  │        api            │  REST  │   zendesk-app        │
 │  (React/Vite)      │◄──────►│ (Node/Express+Prisma) │◄──────►│ (ZAF sidebar, React) │
-│  browse/cart/       │        │  products, carts,     │        │ shown inside the      │
-│  checkout            │        │  orders, coupons,      │        │  Zendesk ticket view   │
-└──────────────────┘        │  abandoned-cart sweep, │        └────────────────────┘
-                              │  email sending          │                 ▲
-                              └──────────┬────────────┘                 │
+│  landing/builder/    │        │  products, carts,     │        │ shown inside the      │
+│  setup/activation      │        │  CDP sweep, support   │        │  Zendesk ticket view   │
+└──────────────────┘        │  tickets, email          │        └────────────────────┘
+                              └──────────┬────────────┘                 ▲
                                          │ Zendesk REST API              │
                                          │ (create ticket, add comment)  │
                                          ▼                                │
@@ -30,46 +38,50 @@ record in the backend, but no payment processor is involved.
                               └──────────────────────┘  calls back into `api`
 ```
 
-- **storefront** — the public e-commerce site. Product catalog, cart, and a
-  checkout that writes a real `Order` row but never touches a real payment
-  gateway. Also the landing page for the "come back and use your coupon" email
-  link.
-- **api** — the single source of truth. Owns the data model, the abandoned-cart
-  sweep job, coupon issuance/expiry, outbound email, and all calls to the
-  Zendesk REST API (ticket creation, comments/tags). Also exposes an
-  **internal** API surface consumed only by the Zendesk sidebar app.
+- **storefront** — the public site: landing page, Connectivity Builder,
+  OTP/save-setup, activation (writes a real `Order` row, no real payment
+  gateway), and a support-contact form. Also the landing page for the
+  "continue my setup" email link.
+- **api** — the single source of truth. Owns the data model, the CDP sweep
+  job, points, outbound email, and the one call to the Zendesk REST API
+  (ticket creation on inbound support contact, plus comments). Also exposes
+  an **internal** API surface consumed only by the Zendesk sidebar app.
 - **zendesk-app** — a Zendesk Apps Framework (ZAF) app that renders in the
-  ticket sidebar. Reads the cart id off the ticket, calls `api`'s internal
-  endpoints to show cart contents and coupon eligibility, and lets the agent
-  trigger coupon issuance with one click.
-- **packages/shared** — TypeScript types/constants (Product, Cart, Order,
-  Coupon shapes, API routes) imported by all three apps so the contract
-  between them can't silently drift.
+  ticket sidebar. Resolves the ticket to a customer, calls `api`'s internal
+  endpoints to show the Unified Profile, and lets the agent grant goodwill
+  points with one click.
+- **packages/shared** — TypeScript types/constants (Product, Cart, Order
+  shapes, API routes) imported by all three apps so the contract between
+  them can't silently drift.
 
 ## Why this shape
 
 - **One backend, one database.** The storefront and the Zendesk app are two
-  different *views* onto the same cart/order/coupon data — they should never
-  disagree about state, so there's exactly one service that owns writes.
-- **Zendesk is a client of `api`, not the other way around.** The sweep job in
-  `api` pushes ticket creation to Zendesk; the sidebar app pulls cart state
-  from `api`. Zendesk never becomes a system of record for commerce data —
-  it only stores a `cart_id` reference (as a ticket tag/custom field) plus
-  human-readable context in the ticket body.
+  different *views* onto the same customer/cart/order data — they should
+  never disagree about state, so there's exactly one service that owns
+  writes.
+- **Zendesk only enters the picture on inbound contact.** Unlike the
+  earlier version of this demo, the CDP sweep never talks to Zendesk at all
+  — it's a pure email nudge. A ticket only exists because Ravta emailed
+  support herself; `api` enriches it with her Unified Profile context
+  rather than Zendesk ever becoming a system of record for that data.
 - **Everything time-based is configurable and demo-forceable.** Waiting a real
-  "few minutes or hours" is unworkable in a live demo, so the abandonment
-  threshold, sweep interval, and coupon TTL are all env-configurable, and
-  `api` exposes a demo-only endpoint to force a sweep immediately. See
-  [demo-setup.md](demo-setup.md).
+  "an hour later" is unworkable in a live demo, so the CDP threshold and
+  sweep interval are env-configurable, and `api` exposes a demo-only
+  endpoint to force a sweep immediately. See [demo-setup.md](demo-setup.md).
+- **The OTP is a demo prop, not a real SMS integration.** A code is
+  generated and logged server-side (same pattern as the Ethereal email
+  preview link) rather than sent through a real carrier gateway — this is
+  a demo of the *flow*, not a working telco backend.
 
 ## Tech stack
 
 | Layer | Choice | Why |
 |---|---|---|
-| storefront | React + Vite + TypeScript, Tailwind, React Router, Zustand | fast to scaffold, minimal ceremony for a demo cart/session store |
+| storefront | React + Vite + TypeScript, Tailwind, React Router, Zustand | fast to scaffold, minimal ceremony for a demo session store |
 | api | Node.js + Express + TypeScript, Prisma ORM | Prisma schema doubles as living data-model documentation |
 | database | PostgreSQL, hosted free on **Neon** | used for both local dev and the hosted demo — one connection string, no SQLite-vs-Postgres drift between environments (see [hosting.md](hosting.md)) |
-| scheduling | `node-cron` in-process, with expiry also checked on-read (not just on a timer) | no external queue needed at demo scale; checking expiry on read means correctness doesn't depend on the process staying warm on a free host (see [hosting.md](hosting.md)) |
+| scheduling | `node-cron` in-process | no external queue needed at demo scale |
 | email | Nodemailer + Ethereal (auto-provisioned test SMTP, preview URL logged to console) behind an `EmailProvider` interface | lets the demo "receive" real-looking email with zero account setup and zero hosting cost; swappable for Resend/SendGrid by implementing the same interface |
 | zendesk-app | Zendesk Apps Framework (ZAF) v2 + React, built/served via Zendesk Apps Tools (ZAT) | standard way to ship a ticket sidebar app; Zendesk hosts the built assets itself once uploaded, so this layer needs no hosting of its own |
 | Zendesk API access | Zendesk REST API via API token (email/token auth) from `api` only | keeps the Zendesk credential server-side; the sidebar app never talks to Zendesk's admin API directly, only to `api` |

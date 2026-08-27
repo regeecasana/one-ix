@@ -44,9 +44,8 @@ Fill in `apps/api/.env`:
 | `ZENDESK_EMAIL` / `ZENDESK_API_TOKEN` | Zendesk API auth |
 | `INTERNAL_API_TOKEN` | shared secret the Zendesk app sends as `X-Internal-Token` |
 | `STOREFRONT_URL` | used to build links in emails |
-| `ABANDON_THRESHOLD_MS` | how idle a checkout-started cart must be to count as abandoned — default a real value, but set low (e.g. `60000`) for a live demo |
-| `ABANDON_SWEEP_INTERVAL_MS` | how often the sweep job runs — keep low (e.g. `15000`) for a live demo |
-| `COUPON_TTL_MINUTES` | default `15`, matches the story |
+| `ABANDON_THRESHOLD_MS` | how idle a saved-but-not-activated cart must be before the CDP sweep flags it — default a real value, but set low (e.g. `60000`) for a live demo |
+| `ABANDON_SWEEP_INTERVAL_MS` | how often the CDP sweep runs — keep low (e.g. `15000`) for a live demo |
 
 ## Running everything
 
@@ -62,7 +61,7 @@ With Docker, instead of the first two (see [infra/README.md](../infra/README.md)
 
 ```
 cd infra
-docker compose up --build  # api on :4000, storefront on :5173, postgres on :5432
+docker compose up --build  # api on :4000, storefront on :5173, postgres on :5433
 ```
 
 ## Wiring up the Zendesk side
@@ -77,18 +76,21 @@ docker compose up --build  # api on :4000, storefront on :5173, postgres on :543
 
 ## Telling the story live, fast
 
-Waiting on real abandonment timing is not demo-friendly, so:
+Waiting on a real "an hour later" is not demo-friendly, so:
 
 1. Set `ABANDON_THRESHOLD_MS` low (e.g. one minute) before the demo.
 2. Or skip the wait entirely: `POST /api/internal/demo/force-sweep` runs the
-   sweep immediately for any cart that has started (but not completed)
-   checkout, regardless of how long it's been idle.
-3. Suggested run order: add to cart on the storefront → start checkout → close
-   the tab → hit the force-sweep endpoint (or wait out the short threshold) →
-   switch to Zendesk, show the new ticket → open the sidebar app → click
-   "Send 20% coupon" → switch back to the storefront, follow the emailed
-   link (via the Ethereal preview URL logged by `api`) → complete checkout at
-   the discounted price.
+   CDP sweep immediately for any saved-but-not-activated cart, regardless
+   of how long it's been idle.
+3. Act 1 run order: build a setup on the storefront → save it with
+   mobile+OTP → don't activate → hit the force-sweep endpoint (or wait out
+   the short threshold) → the nudge email arrives (Ethereal preview URL
+   logged by `api`) → follow the link → activate → points balance shows
+   the completion bonus.
+4. Act 2 run order (independent of Act 1): submit the support-contact form
+   → switch to Zendesk, show the new ticket → open the sidebar app → see
+   the Unified Profile with no manual lookup → click "Grant goodwill
+   points."
 
 ## Seed data
 

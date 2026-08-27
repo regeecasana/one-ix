@@ -1,32 +1,40 @@
 # Transactional Emails
 
 Sent by `apps/api` via the `EmailProvider` interface (default implementation:
-Nodemailer + Ethereal — see [demo-setup.md](demo-setup.md)). Two templates
+Nodemailer + Ethereal — see [demo-setup.md](demo-setup.md)). Three templates
 needed for the demo.
 
-## 1. Abandoned-cart coupon email
+## 1. Setup-saved nudge (the CDP email)
 
-Triggered by `POST /api/internal/carts/:cartId/coupons` (the agent's "Send
-20% coupon" click).
+Triggered by the CDP sweep job when it finds a saved-but-not-activated cart.
 
 - **To**: `Cart.customerId → Customer.email`
-- **Subject**: `You left something behind — here's 20% off`
+- **Subject**: `Your Creator Setup is still saved`
 - **Body** (plain-language content, not final copy):
-  - "You just got a 20% off coupon that can be used to buy **{product
-    name}**."
-  - Coupon code, spelled out.
-  - Explicit expiry: "This expires in 15 minutes."
-  - A link back to the storefront: `{storefrontUrl}/cart/{cartId}?coupon={code}`
-    — restores the cart and pre-fills the coupon at checkout.
+  - "Hi {name}, your Creator Setup is still saved."
+  - "Complete your activation today and receive another 5,000 XL points."
+  - A link back to the storefront: `{storefrontUrl}/setup/{cartId}` —
+    restores the setup and continues straight to activation. No code to
+    apply — the points bonus is automatic on completion.
 
-## 2. Order confirmation
+## 2. Activation confirmation
 
 Triggered by `POST /api/carts/:id/checkout/complete` on success.
 
 - **To**: customer email
-- **Subject**: `Order confirmed — {order id}`
-- **Body**: line items, subtotal, discount (if a coupon was applied), total,
-  "no real payment was processed — this is a demo."
+- **Subject**: `Your setup is active — {order id}`
+- **Body**: line items, subtotal, total, points earned this order (5,000
+  base + 5,000 completion bonus if this followed a CDP nudge), "no real
+  payment was processed — this is a demo."
+
+## 3. Goodwill points granted
+
+Triggered by `POST /api/internal/customers/:customerId/points` (an agent
+resolving a support ticket).
+
+- **To**: customer email
+- **Subject**: `You've received {amount} XL points`
+- **Body**: the amount granted, the reason the agent gave, new balance.
 
 ## Delivery in the demo
 

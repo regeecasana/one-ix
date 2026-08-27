@@ -1,72 +1,91 @@
 # User Stories / Demo Script
 
-Two personas: the **Consumer** (shopper) and the **Agent** (Zendesk support
-agent). The primary story is one flow told from both sides — the rest are
-supporting scenarios the demo should also be able to show.
+Persona: **Ravta**, an XLSmart customer — a digital creator, part of a
+multi-brand household. Two sides of the demo: Ravta herself, and the
+**support agent** who eventually helps her.
 
-## Primary flow (the headline demo)
+This replaced an earlier, simpler abandoned-cart-and-coupon script. That
+mechanic still exists underneath (a saved-but-not-activated setup is still
+detected and nudged the same way a cart was), but the story is now telco-
+specific and has a second, independent act: a proactive support contact.
 
-### Consumer side
+## Act 1 — Acquisition, the Connectivity Builder, and the CDP nudge
 
-1. Consumer browses the storefront, adds an item to their cart.
-2. Consumer starts checkout, then abandons — closes the tab, or balks at the
-   price. No order is created.
-3. Some time later (minutes in the demo, framed as "minutes or hours" in
-   reality), the consumer gets an email: **"You just got a 20% off coupon —
-   use it on [item]."**
-4. Consumer clicks the email, lands back on the storefront with their cart
-   restored and the coupon available.
-5. Consumer checks out using the coupon. A real `Order` is created at the
-   discounted price (no real payment).
+1. Ravta is scrolling TikTok and sees an XL **Creator Package** campaign ad.
+   She clicks the CTA.
+2. She lands on the Creator Package landing page. The page already knows
+   *why* she's there — source = TikTok, campaign = Creator Package, content
+   context = creator use case — captured from the link's query params, not
+   asked again.
+3. She works through the **Connectivity Builder**: a couple of quick
+   questions (how she uses her connection, how many devices need coverage).
+   The page recommends **one specific plan**, with a plain-language reason
+   tied to her answers — not a generic plan list.
+4. She clicks **"Save my setup."** The page asks for her mobile number,
+   consent, and an OTP — in exchange for **5,000 XL Points**.
+   - Before the OTP, all we have is an anonymous session: her builder
+     answers and browsing signals, no identity yet.
+   - The OTP verifies the mobile number and triggers **identity
+     resolution** — matching (or creating) a `Customer` record, merging the
+     anonymous signals into it. Anonymous behavior + known customer record
+     = one **Unified Profile**.
+5. Ravta doesn't activate right away. She saves the setup and decides to
+   think about it later. No `Order` is created.
+6. An hour later (minutes, in the demo), the CDP sweep notices: setup
+   saved, no purchase, time elapsed — high intent, not yet converted. It
+   sends a personalized reminder by email:
+   > "Hi Ravta 👋 Your Creator Setup is still saved. Complete your
+   > activation today and receive another 5,000 XL points."
+   > **Continue My Setup**
+7. Ravta clicks through, her setup is right where she left it, and she
+   activates. A real `Order` is created (mock payment), and because this
+   activation followed a CDP nudge, she gets the completion bonus —
+   10,000 XL Points total for this setup.
 
-### Agent side
+## Act 2 — A support contact, and what the agent sees
 
-1. A new Zendesk ticket appears: **"Abandoned cart — [item]"**, auto-created
-   by the system, with the consumer as requester and the item/cart details in
-   the ticket body.
-2. Agent opens the ticket. The custom sidebar app shows the cart contents,
-   the consumer's email, and whether a coupon has already been issued for
-   this cart.
-3. Agent decides to help and clicks **"Send 20% coupon"** in the sidebar app.
-4. The system generates a coupon (20% off, tied to that cart/item), emails it
-   to the consumer, and marks it **expires in 15 minutes**. The sidebar app
-   and the ticket both reflect that a coupon was sent, by whom, and when it
-   expires.
-5. If the consumer redeems it, the ticket (or the sidebar app view) reflects
-   the recovered order. If it expires unused, the sidebar shows "expired."
-
-These two are **one flow**, not two separate features: step 4 on the agent
-side is what causes step 3 on the consumer side.
+1. Later, before an important livestream, Ravta hits a network issue and
+   emails support. This is **unrelated** to the setup/activation above —
+   she's not asking about a discount, she has a problem *right now*.
+2. That email becomes a Zendesk ticket. Instead of the agent having to ask
+   "what's your account number," the ticket sidebar app immediately shows
+   Ravta's **Unified Profile**: which campaign brought her in, her saved
+   setup and recommended plan, her activation history, her current XL
+   Points balance, and any prior support contacts.
+3. There's no automated diagnosis step in this build — the ticket goes
+   straight to a human agent, who already has full context the moment they
+   open it.
+4. If the agent resolves the issue and wants to make it right, they can
+   grant **goodwill points** from the sidebar app in one click — the same
+   "single agent action" beat the coupon button used to be, just pointed at
+   a different, more natural moment (compensating a real problem, not
+   nudging a sale).
+5. During her livestream, Ravta mentions the smooth resolution — the loop
+   closes back to the TikTok audience that brought her in. (Narrative only;
+   nothing to build for this beat.)
 
 ## Supporting scenarios to also capture
 
-- **Happy path, no abandonment.** Consumer adds to cart, checks out
-  immediately, no coupon involved, no ticket created. This has to keep
-  working — it's the baseline the recovery flow is an exception to.
-- **Coupon expires unused.** Agent sends the coupon, 15 minutes pass, consumer
-  never returns. Coupon flips to `expired`; cart stays `abandoned`; the
-  sidebar app shows the expiry instead of an active-coupon state.
-- **Consumer returns after expiry.** Coupon code no longer applies at
-  checkout; consumer can still buy at full price. Demonstrates the coupon
-  isn't a permanent backdoor.
-- **Multiple items in the abandoned cart.** Ticket/sidebar should summarize
-  more than a single-item cart, and the coupon should apply across the cart
-  rather than one SKU.
-- **No coupon available / agent declines.** Agent can view the ticket without
-  issuing a coupon (e.g. item is final-sale or already discounted) — issuing
-  a coupon is always an explicit agent action, never automatic.
-- **Duplicate abandonment.** Same consumer abandons a cart again after
-  already recovering (or ignoring) a previous one — a second, independent
-  ticket/coupon cycle, not a merge into the old one.
-- **Agent-initiated, ticket-less flow (stretch).** Agent proactively looks up
-  a customer/cart and issues a coupon without a system-generated ticket
-  (e.g. responding to a general "is there a discount?" ticket). Confirms
-  coupon issuance isn't hard-wired to the auto-created ticket type.
+- **Happy path, no nudge needed.** Ravta builds a setup and activates
+  immediately. No CDP email, no points bonus beyond the initial 5,000.
+- **Nudge sent, never returns.** The CDP sweep sends the reminder once
+  (`Cart.remindedAt` set) and doesn't re-send. Setup stays saved,
+  un-activated, indefinitely — no expiry pressure the way the old coupon
+  had one, since points aren't time-limited.
+- **Multi-item setup.** A plan plus an add-on (e.g. a 5G speed boost) —
+  the Unified Profile and the nudge email both need to summarize more than
+  one line item.
+- **Support contact with no prior setup.** Someone can email support
+  without ever having gone through the builder — identity resolution still
+  finds or creates a `Customer` by email, the profile is just thinner.
+- **Agent declines to grant points.** Viewing the ticket and its context is
+  independent of granting points — that's always an explicit, optional
+  agent action, never automatic.
+- **Duplicate support contact.** The same customer emails again later — a
+  second, independent `SupportTicket`, not merged into the first.
 
 ## Demo pacing note
 
-Real abandonment windows and "few minutes or hours" timelines don't fit a
-live demo. The abandoned-cart threshold, sweep interval, and coupon TTL are
-all configurable (see [demo-setup.md](demo-setup.md)), and there's a
-demo-only "force sweep now" control so the story above can be told in a
-couple of minutes without arbitrary waiting.
+Same idea as before: the CDP threshold and sweep interval are
+env-configurable, and there's a demo-only "force sweep now" endpoint so Act
+1 doesn't require an actual hour's wait. See [demo-setup.md](demo-setup.md).

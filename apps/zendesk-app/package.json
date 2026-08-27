@@ -2,7 +2,7 @@
   "name": "@oneix/zendesk-app",
   "version": "0.0.0",
   "private": true,
-  "description": "Zendesk ticket sidebar app: cart summary + coupon issuance for abandoned-cart tickets",
+  "description": "Zendesk ticket sidebar app: Unified Profile view + goodwill points grant for support tickets",
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",

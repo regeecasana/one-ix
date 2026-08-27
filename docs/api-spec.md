@@ -3,12 +3,12 @@
 Two audiences, two trust levels:
 
 - **Public API** (`/api/*`) — called by the storefront. No auth beyond an
-  email captured at checkout; this is a demo, not a real account system.
+  email/mobile number captured during the flow; this is a demo, not a real
+  account system.
 - **Internal API** (`/api/internal/*`) — called only by the Zendesk sidebar
-  app and by `api`'s own Zendesk-facing webhook receiver. Requires a shared
-  secret header (`X-Internal-Token`) that the Zendesk app is configured with
-  at install time. Never exposed to the storefront or the public internet
-  without that header.
+  app. Requires a shared secret header (`X-Internal-Token`) that the
+  Zendesk app is configured with at install time. Never exposed to the
+  storefront or the public internet without that header.
 
 Money is always integer cents on the wire.
 
@@ -16,55 +16,50 @@ Money is always integer cents on the wire.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/products` | list catalog |
+| GET | `/api/products` | list the catalog (connectivity plans + add-ons) |
 | GET | `/api/products/:id` | product detail |
-| POST | `/api/carts` | create a cart, returns `cartId` |
-| GET | `/api/carts/:id` | fetch cart contents (also used to restore a cart from the coupon email link) |
-| POST | `/api/carts/:id/items` | add/update an item (bumps `lastActivityAt`) |
-| DELETE | `/api/carts/:id/items/:itemId` | remove an item |
-| POST | `/api/carts/:id/checkout/start` | capture the customer email against the cart, bumps `lastActivityAt` — this is the "started checkout" signal the abandonment story hinges on |
-| POST | `/api/carts/:id/checkout/complete` | create the `Order` (mock payment — always succeeds), optionally applying `couponCode`; marks cart `converted` |
-| GET | `/api/coupons/:code?cartId=...` | validate a coupon code against a cart before submitting checkout (for inline "apply coupon" UX). `cartId` is required and rate-limited (20/min/IP) -- a coupon code alone is only ~48 bits of entropy, not a secret worth exposing as a bare enumeration oracle |
+| POST | `/api/builder/recommend` | Connectivity Builder: body `{ usage, devices }` → `{ productId, reason }`. A deterministic rules engine, not a model call — see [architecture.md](architecture.md) |
+| POST | `/api/carts` | create a setup. Body may include `{ utmSource, utmCampaign, utmContent }` captured from the landing page's query params |
+| GET | `/api/carts/:id` | fetch setup contents (also used to restore a setup from the "Continue My Setup" email link) |
+| POST | `/api/carts/:id/items` | add/update a line item (bumps `lastActivityAt`) |
+| DELETE | `/api/carts/:id/items/:itemId` | remove a line item |
+| POST | `/api/carts/:id/otp/request` | body `{ mobileNumber }`. Generates a 6-digit code, stores it on the cart, "sends" it -- logged to the server console (`[otp] mobile=... code=...`), no real SMS. Always succeeds |
+| POST | `/api/carts/:id/otp/verify` | body `{ email, mobileNumber, otp, name? }`. Verifies the code, resolves identity (find-or-create `Customer` by mobile number or email), links the cart, awards **+5,000 points** — this is "save my setup" |
+| POST | `/api/carts/:id/checkout/complete` | create the `Order` (mock payment, always succeeds); marks cart `converted`. If `Cart.remindedAt` is set, awards a **+5,000 point completion bonus** on top of the order |
+| POST | `/api/support/tickets` | body `{ email, subject, message }`. Resolves the customer by email (found-or-created), creates a Zendesk ticket carrying their Unified Profile as context, records a `SupportTicket` row. This is Ravta's proactive contact — see [user-stories.md](user-stories.md) Act 2 |
 
-## Internal API (Zendesk sidebar app + Zendesk webhook receiver)
+## Internal API (Zendesk sidebar app)
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/internal/carts/:cartId/summary` | cart items, customer email, current `AbandonedCartEvent` status, any coupon and its state — what the sidebar app renders |
-| POST | `/api/internal/carts/:cartId/coupons` | agent action: issue a coupon for this cart (`percentOff` defaults to 20, `ttlMinutes` defaults to 15). Records `issuedBy: agent`, sends the recovery email, appends a Zendesk ticket comment/tag via the Zendesk API |
-| GET | `/api/internal/tickets/:ticketId/cart` | resolve a Zendesk ticket id to its `cartId` (the sidebar app only knows the ticket it's mounted in) |
-| POST | `/api/internal/demo/force-sweep` | demo control: run the abandoned-cart sweep immediately instead of waiting for the interval |
+| GET | `/api/internal/tickets/:ticketId/customer` | resolve a Zendesk ticket id to its `customerId` via `SupportTicket` |
+| GET | `/api/internal/customers/:customerId/profile` | the **Unified Profile**: customer info, points balance, campaign attribution + recommended plan from their most recent cart, activation history, recent support tickets — what the sidebar app renders |
+| POST | `/api/internal/customers/:customerId/points` | agent action: grant goodwill points. Body `{ amount, reason }`. Updates the balance, sends a notification email, and — if the request came from a ticket context — appends a Zendesk ticket comment |
+| POST | `/api/internal/demo/force-sweep` | demo control: run the CDP sweep immediately instead of waiting for the interval |
 
 ## Outbound: api → Zendesk
 
-`api` is the only component with Zendesk credentials (API token). It calls
-Zendesk's REST API for two things:
-
-1. **Create ticket** on abandonment detection — subject
-   `Abandoned cart — {product name}`, requester = customer email, tag
-   `abandoned_cart`, and a custom field / tag carrying `cart_id` so the
-   sidebar app and `GET /api/internal/tickets/:ticketId/cart` can resolve it.
-2. **Add a ticket comment** when a coupon is issued or redeemed, so the
-   ticket timeline stays human-readable even without opening the sidebar app.
+`api` is the only component with Zendesk credentials (API token). Ticket
+creation now happens on **inbound contact only** (`POST
+/api/support/tickets`), not on any automated detection — the CDP sweep
+never touches Zendesk. The ticket body includes enough of the Unified
+Profile (campaign source, saved setup / recommended plan, points balance,
+activation status) that the agent doesn't have to ask who Ravta is. A
+follow-up comment is posted when an agent grants goodwill points from the
+sidebar app, so the ticket timeline stays readable without opening the app.
 
 ## Background jobs (in-process, `node-cron`)
 
 | Job | Interval (default) | Behavior |
 |---|---|---|
-| Abandoned-cart sweep | every 1 min (demo), configurable via `ABANDON_SWEEP_INTERVAL_MS`; also triggerable via `POST /api/internal/demo/force-sweep` | finds `active` carts with `lastActivityAt` older than `ABANDON_THRESHOLD_MS` that have started checkout but not completed it; flips to `abandoned`, creates `AbandonedCartEvent`, creates the Zendesk ticket |
-| Coupon expiry | every 1 min | flips `active` coupons past `expiresAt` to `expired` in the database; if the parent `AbandonedCartEvent` is still `coupon_sent`, flips it to `expired_unused` |
+| CDP sweep | every 1 min (demo), configurable via `ABANDON_SWEEP_INTERVAL_MS`; also triggerable via `POST /api/internal/demo/force-sweep` | finds `active` carts with a `customerId`, `remindedAt IS NULL`, and `lastActivityAt` older than `ABANDON_THRESHOLD_MS` — saved, no purchase, high intent. Sends the points-bonus nudge email and sets `remindedAt`. No Zendesk call. |
 
-Coupon expiry is also **checked live** wherever it's read (checkout
-validation, the internal cart-summary endpoint) by comparing `expiresAt` to
-`now()`, not just trusted from the `status` column. That matters because
-`api` runs on a free host that can go to sleep between requests (see
-[hosting.md](hosting.md)) — correctness of "is this coupon still good" can't
-depend on a timer having fired recently. The scheduled job that physically
-flips the `status` column is for the ticket comment / audit trail, not the
-source of truth. The abandoned-cart sweep doesn't have an on-read fallback
-in the same way (nothing "reads" its way into noticing a cart went idle), so
-on the hosted deployment it's driven by an external scheduler hitting
-force-sweep — see [hosting.md](hosting.md).
+There's no expiry job anymore — points don't expire the way the old coupon
+did, so there's nothing to sweep on that axis. The one thing worth keeping
+in mind on a free host that can sleep between requests (see
+[hosting.md](hosting.md)): the CDP sweep is timer-driven with no on-read
+fallback, same caveat the old abandoned-cart sweep had — on the hosted
+deployment it's driven by an external scheduler hitting `force-sweep`.
 
-See [demo-setup.md](demo-setup.md) for the env vars that make these fast
+See [demo-setup.md](demo-setup.md) for the env vars that make this fast
 enough to watch live.

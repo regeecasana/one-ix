@@ -24,32 +24,34 @@ surface.
 
 ## What it needs from the host ticket
 
-The app must resolve *which cart* the current ticket is about. Two viable
-approaches, either works and both should be supported so the demo isn't
-fragile to how the ticket was created:
-
-1. **Ticket field**: the sweep job sets a Zendesk ticket field (custom field,
-   e.g. `cart_id`) when it creates the ticket. The app reads it via the ZAF
-   `client.get('ticket.customField:cart_id')`.
-2. **Fallback via tag + lookup**: if no custom field is present (e.g. a
-   manually created ticket), the app calls
-   `GET /api/internal/tickets/:ticketId/cart` and lets `api` resolve it
-   however it can (e.g. matching requester email to a recent abandoned cart).
+Tickets in this build only ever come from one place: Ravta emailing
+support (`POST /api/support/tickets`). That call creates a `SupportTicket`
+row mapping `zendeskTicketId → customerId` at creation time, so the app
+just needs the ticket id (`client.get('ticket.id')`) and calls
+`GET /api/internal/tickets/:ticketId/customer` to resolve it — no custom
+field or tag parsing needed.
 
 ## UI (single view, no routing needed)
 
-1. **Loading** — while `GET /api/internal/carts/:cartId/summary` resolves.
-2. **Cart summary** — item(s), quantities, subtotal, customer email.
-3. **Coupon state**, one of:
-   - *No coupon issued* → primary button **"Send 20% coupon"**.
-   - *Coupon active* → code, percent off, countdown to `expiresAt`.
-   - *Coupon expired* → greyed-out state, "expired unused", optional
-     **"Send another coupon"** button.
-   - *Order placed* → "Recovered — order #… for $…", no further action.
-4. Clicking **"Send 20% coupon"** calls
-   `POST /api/internal/carts/:cartId/coupons`, then re-fetches the summary to
-   move into the *active* state. This is the single agent-facing action the
-   whole demo hinges on — keep it one click, no form.
+1. **Loading** — while the customer id and then
+   `GET /api/internal/customers/:customerId/profile` resolve.
+2. **Unified Profile** — the whole point of this app:
+   - How they found XLSmart (campaign/source, if any).
+   - Their saved setup: recommended plan + why, and whether it's been
+     activated.
+   - Current XL Points balance.
+   - Recent support contacts.
+3. **Grant goodwill points** — an amount field (a couple of preset buttons,
+   e.g. 1,000 / 2,000 / 5,000, plus a reason) and a single **"Grant
+   points"** action. Calls
+   `POST /api/internal/customers/:customerId/points`, then re-fetches the
+   profile so the new balance shows immediately. This is the one
+   agent-facing action the demo hinges on — same "one click, no form
+   beyond a reason" shape the old coupon button had.
+
+There's no AI-diagnosis step in this build — the ticket goes straight to a
+human agent, and the value this app adds is *not having to ask who Ravta
+is*, not automating the resolution itself.
 
 ## Auth
 
