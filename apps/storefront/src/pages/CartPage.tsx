@@ -23,14 +23,14 @@ export function CartPage() {
   const subtotalCents = (cart?.items ?? []).reduce((sum, item) => sum + item.quantity * item.unitPriceCents, 0);
 
   if (loading && !cart) {
-    return <p className="font-mono text-sm text-ink-soft">Loading manifest…</p>;
+    return <p className="font-mono text-sm text-ink-soft">Loading cart…</p>;
   }
 
   if (!cart || cart.items.length === 0) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="font-display text-3xl font-bold uppercase text-ink">Manifest</h1>
-        <p className="font-body text-ink-soft">Nothing on the manifest yet.</p>
+        <h1 className="font-display text-3xl font-bold uppercase text-ink">Cart</h1>
+        <p className="font-body text-ink-soft">Your cart's empty.</p>
         <Link to="/" className="font-mono text-sm uppercase tracking-[0.08em] text-blaze underline underline-offset-4">
           Browse the catalog
         </Link>
@@ -40,7 +40,7 @@ export function CartPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-display text-3xl font-bold uppercase text-ink">Manifest</h1>
+      <h1 className="font-display text-3xl font-bold uppercase text-ink">Cart</h1>
 
       <div className="flex flex-col border-t border-ink">
         <div className="hidden border-b border-ink py-2 font-mono text-xs uppercase tracking-[0.1em] text-ink-soft sm:flex">
@@ -109,7 +109,7 @@ export function CartPage() {
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={() => navigate("/checkout")}>Proceed to dispatch →</Button>
+        <Button onClick={() => navigate("/checkout")}>Proceed to activation →</Button>
       </div>
     </div>
   );

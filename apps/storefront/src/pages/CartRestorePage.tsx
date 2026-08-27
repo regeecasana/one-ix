@@ -24,8 +24,8 @@ export function CartRestorePage() {
   if (status === "done") return <Navigate to="/cart" replace />;
 
   if (status === "error") {
-    return <p className="font-body text-ink">That manifest isn't on file anymore.</p>;
+    return <p className="font-body text-ink">That cart isn't available anymore.</p>;
   }
 
-  return <p className="font-mono text-sm text-ink-soft">Restoring your manifest…</p>;
+  return <p className="font-mono text-sm text-ink-soft">Restoring your cart…</p>;
 }

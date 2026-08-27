@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useProducts } from "../hooks/useProducts";
 import { formatCents } from "../lib/money";
 import { useCartStore } from "../store/cartStore";
+import { SignalBars } from "../components/SignalBars";
 
 export function OrderConfirmationPage() {
   const lastOrder = useCartStore((s) => s.lastOrder);
@@ -10,7 +11,7 @@ export function OrderConfirmationPage() {
   if (!lastOrder) {
     return (
       <div className="flex flex-col gap-4">
-        <p className="font-body text-ink">Nothing's been dispatched yet.</p>
+        <p className="font-body text-ink">Nothing's been activated yet.</p>
         <Link to="/" className="font-mono text-sm uppercase tracking-[0.08em] text-blaze underline underline-offset-4">
           Back to catalog
         </Link>
@@ -23,29 +24,28 @@ export function OrderConfirmationPage() {
 
   return (
     <div className="flex flex-col items-start gap-8">
-      <div>
-        <span className="stamp">Issued</span>
+      <div className="flex items-center gap-4">
+        <SignalBars size="lg" animated />
+        <span className="font-display text-lg font-bold uppercase tracking-[0.2em] text-blaze">Activated</span>
       </div>
 
       <div>
-        <h1 className="font-display text-3xl font-bold uppercase text-ink">Dispatch confirmed</h1>
-        <p className="mt-1 font-mono text-sm text-ink-soft">Manifest #{order.id}</p>
+        <h1 className="font-display text-3xl font-bold uppercase text-ink">Service activated</h1>
+        <p className="mt-1 font-mono text-sm text-ink-soft">Activation #{order.id}</p>
       </div>
 
-      <table className="w-full max-w-lg border-collapse text-left">
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.id} className="border-b border-hairline">
-              <td className="py-2 font-body text-ink">
-                {item.quantity} × {productMap.get(item.productId)?.name ?? item.productId}
-              </td>
-              <td className="py-2 text-right font-mono tabular-nums text-ink">
-                {formatCents(item.unitPriceCents * item.quantity)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="flex w-full max-w-lg flex-col">
+        {items.map((item) => (
+          <div key={item.id} className="flex justify-between gap-4 border-b border-hairline py-2">
+            <span className="font-body text-ink">
+              {item.quantity} × {productMap.get(item.productId)?.name ?? item.productId}
+            </span>
+            <span className="font-mono tabular-nums text-ink">
+              {formatCents(item.unitPriceCents * item.quantity)}
+            </span>
+          </div>
+        ))}
+      </div>
 
       <div className="flex w-full max-w-lg flex-col gap-1">
         <div className="flex justify-between font-mono text-sm tabular-nums text-ink-soft">

@@ -8,13 +8,12 @@ export function HomePage() {
     <div className="flex flex-col gap-12">
       <section className="max-w-2xl">
         <h1 className="font-display text-5xl font-bold uppercase leading-[0.95] tracking-tight text-ink sm:text-6xl">
-          Everyday gear,
-          <br />
-          issued to spec.
+          Stay in range.
         </h1>
         <p className="mt-5 font-body text-base text-ink-soft">
-          Five items, no fluff. This is a working demo store — carts really abandon, coupons
-          really expire, orders really get issued. No real payment is ever taken.
+          Five products, no fine print. This is a working demo store — carts really abandon,
+          coupons really expire, orders really get activated. No real payment is ever taken. No
+          real network, either.
         </p>
       </section>
 
@@ -36,8 +35,8 @@ export function HomePage() {
 
         {products && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {products.map((product, i) => (
-              <ProductCard key={product.id} product={product} index={i} />
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
         )}

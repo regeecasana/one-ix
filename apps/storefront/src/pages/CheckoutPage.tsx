@@ -6,7 +6,7 @@ import { useCartStore } from "../store/cartStore";
 import { Button } from "../components/Button";
 
 const REASON_COPY: Record<string, string> = {
-  not_found: "That code doesn't apply to this manifest.",
+  not_found: "That code doesn't apply to this cart.",
   expired: "That code has expired.",
   redeemed: "That code has already been used.",
 };
@@ -51,7 +51,7 @@ export function CheckoutPage() {
   }, [cart?.customerId]);
 
   if (!cart) {
-    return <p className="font-mono text-sm text-ink-soft">Loading dispatch form…</p>;
+    return <p className="font-mono text-sm text-ink-soft">Loading activation…</p>;
   }
 
   const subtotalCents = cart.items.reduce((sum, item) => sum + item.quantity * item.unitPriceCents, 0);
@@ -68,7 +68,7 @@ export function CheckoutPage() {
     try {
       await startCheckout(email.trim(), name.trim() || undefined);
     } catch {
-      setStartError("Couldn't start dispatch. Check the email and try again.");
+      setStartError("Couldn't start activation. Check the email and try again.");
     } finally {
       setStartingCheckout(false);
     }
@@ -98,7 +98,7 @@ export function CheckoutPage() {
       setOrderError(
         err instanceof ApiError && err.message === "invalid_coupon"
           ? "That code no longer applies -- remove it and try again."
-          : "Couldn't issue the order. Try again."
+          : "Couldn't complete activation. Try again."
       );
     } finally {
       setPlacingOrder(false);
@@ -107,10 +107,10 @@ export function CheckoutPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="font-display text-3xl font-bold uppercase text-ink">Dispatch</h1>
+      <h1 className="font-display text-3xl font-bold uppercase text-ink">Activate</h1>
 
       <section className="flex flex-col gap-3 border border-hairline bg-canvas p-5">
-        <h2 className="eyebrow">Who's this going to?</h2>
+        <h2 className="eyebrow">Who's activating?</h2>
         {cart.customerId ? (
           <p className="font-body text-sm text-ink">
             Confirmation goes to <span className="font-mono">{email || "your email"}</span>.
@@ -149,7 +149,7 @@ export function CheckoutPage() {
       {cart.customerId && (
         <>
           <section className="flex flex-col gap-3 border border-hairline bg-canvas p-5">
-            <h2 className="eyebrow">Got a code?</h2>
+            <h2 className="eyebrow">Got a promo code?</h2>
             <div className="flex flex-col gap-3 sm:flex-row">
               <input
                 type="text"
@@ -177,7 +177,7 @@ export function CheckoutPage() {
             )}
             {couponResult?.valid && couponResult.coupon && (
               <p className="font-body text-sm text-moss">
-                Applied -- {couponResult.coupon.percentOff}% off this manifest.
+                Applied -- {couponResult.coupon.percentOff}% off this order.
               </p>
             )}
           </section>
@@ -202,7 +202,7 @@ export function CheckoutPage() {
 
             <div className="flex justify-end pt-2">
               <Button onClick={handlePlaceOrder} disabled={placingOrder}>
-                {placingOrder ? "Issuing…" : "Confirm dispatch"}
+                {placingOrder ? "Activating…" : "Confirm activation"}
               </Button>
             </div>
           </section>

@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
 import type { Product } from "@oneix/shared";
 import { formatCents } from "../lib/money";
+import { productCategory } from "../lib/productMeta";
 import { useCartStore } from "../store/cartStore";
 import { ProductIcon } from "./ProductIcon";
 
-export function ProductCard({ product, index }: { product: Product; index: number }) {
+export function ProductCard({ product }: { product: Product }) {
   const cart = useCartStore((s) => s.cart);
   const addItem = useCartStore((s) => s.addItem);
 
@@ -19,7 +20,7 @@ export function ProductCard({ product, index }: { product: Product; index: numbe
         <ProductIcon productId={product.id} className="h-24 w-24" />
       </Link>
       <div className="flex flex-1 flex-col gap-2 p-4">
-        <span className="eyebrow">NO. {String(index + 1).padStart(2, "0")}</span>
+        <span className="eyebrow">{productCategory(product.id)}</span>
         <Link to={`/products/${product.id}`} className="font-display text-xl font-semibold leading-tight text-ink">
           {product.name}
         </Link>
@@ -30,7 +31,7 @@ export function ProductCard({ product, index }: { product: Product; index: numbe
             type="button"
             onClick={() => addItem(product.id, currentQty + 1)}
             className="border border-ink px-3 py-1 font-mono text-xs uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-canvas"
-            aria-label={`Add ${product.name} to manifest`}
+            aria-label={`Add ${product.name} to cart`}
           >
             + Add
           </button>
