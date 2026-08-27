@@ -31,7 +31,7 @@ export function ProductCard({ product }: { product: Product }) {
             type="button"
             onClick={() => addItem(product.id, currentQty + 1)}
             className="border border-ink px-3 py-1 font-mono text-xs uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-canvas"
-            aria-label={`Add ${product.name} to cart`}
+            aria-label={`Add ${product.name} to setup`}
           >
             + Add
           </button>

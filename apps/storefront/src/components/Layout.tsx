@@ -9,7 +9,7 @@ export function Layout() {
         <Outlet />
       </main>
       <footer className="border-t border-hairline px-4 py-6 text-center font-mono text-xs uppercase tracking-[0.15em] text-ink-soft sm:px-6">
-        Relay — a working demo store. No real payment is ever taken. No real network, either.
+        XLSmart — a working demo store. No real payment is ever taken. No real network, either.
       </footer>
     </div>
   );

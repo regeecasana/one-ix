@@ -39,7 +39,7 @@ export function ProductPage() {
     setAdding(true);
     try {
       await addItem(product!.id, currentQty + quantity);
-      navigate("/cart");
+      navigate("/setup");
     } finally {
       setAdding(false);
     }
@@ -57,7 +57,7 @@ export function ProductPage() {
         </span>
         <h1 className="font-display text-4xl font-bold uppercase leading-none text-ink">{product.name}</h1>
         <p className="font-body text-base text-ink-soft">{product.description}</p>
-        <p className="font-mono text-2xl tabular-nums text-ink">{formatCents(product.priceCents)}</p>
+        <p className="font-mono text-2xl tabular-nums text-ink">{formatCents(product.priceCents)}/mo</p>
 
         <div className="mt-4 flex items-center gap-4">
           <div className="flex items-center border border-ink">
@@ -80,7 +80,7 @@ export function ProductPage() {
             </button>
           </div>
           <Button onClick={handleAdd} disabled={adding}>
-            {adding ? "Adding…" : "Add to cart"}
+            {adding ? "Adding…" : "Add to setup"}
           </Button>
         </div>
       </div>

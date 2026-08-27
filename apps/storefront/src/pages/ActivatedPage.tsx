@@ -4,7 +4,7 @@ import { formatCents } from "../lib/money";
 import { useCartStore } from "../store/cartStore";
 import { SignalBars } from "../components/SignalBars";
 
-export function OrderConfirmationPage() {
+export function ActivatedPage() {
   const lastOrder = useCartStore((s) => s.lastOrder);
   const { products } = useProducts();
 
@@ -48,20 +48,16 @@ export function OrderConfirmationPage() {
       </div>
 
       <div className="flex w-full max-w-lg flex-col gap-1">
-        <div className="flex justify-between font-mono text-sm tabular-nums text-ink-soft">
-          <span>Subtotal</span>
-          <span>{formatCents(order.subtotalCents)}</span>
-        </div>
-        {order.discountCents > 0 && (
-          <div className="flex justify-between font-mono text-sm tabular-nums text-moss">
-            <span>Discount</span>
-            <span>−{formatCents(order.discountCents)}</span>
-          </div>
-        )}
         <div className="flex justify-between border-t border-ink pt-1 font-mono text-xl tabular-nums text-ink">
-          <span>Total</span>
+          <span>Total / mo</span>
           <span>{formatCents(order.totalCents)}</span>
         </div>
+        {order.pointsEarned > 0 && (
+          <div className="flex justify-between font-mono text-sm tabular-nums text-moss">
+            <span>XL points earned</span>
+            <span>+{order.pointsEarned.toLocaleString()}</span>
+          </div>
+        )}
       </div>
 
       <p className="font-mono text-xs uppercase tracking-[0.1em] text-ink-soft">
