@@ -70,13 +70,14 @@ Each app has its own README. The full design lives in `docs/`:
 
 ## Status
 
-Scaffolded: monorepo structure, shared types, and full design docs are in
-place. No business logic is implemented yet — see
-[docs/roadmap.md](docs/roadmap.md) for the phased build order (storefront
-happy path → abandonment detection → coupon issuance + sidebar app →
-polish).
+`apps/api` is fully implemented: products, carts, checkout, coupons, the
+abandoned-cart sweep, coupon expiry, Zendesk ticket/comment calls, and
+email are all working end to end (verified against both plain `npm run dev`
+and the Docker stack in `infra/`). `apps/storefront` and `apps/zendesk-app`
+are still scaffolds with no UI built yet — see
+[docs/roadmap.md](docs/roadmap.md) for what's left.
 
-## Quick start (once implemented)
+## Quick start
 
 With Docker (no local Node/Postgres install needed for `api`/`storefront`):
 
