@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    background-color: theme("colors.paper");
+  }
+
+  body {
+    @apply bg-paper text-ink font-body antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+
+  :focus-visible {
+    outline: 2px solid theme("colors.blaze");
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: theme("colors.blaze");
+    color: theme("colors.canvas");
+  }
+}
+
+@layer components {
+  .stamp {
+    @apply inline-block rounded-sm border-[3px] border-blaze px-5 py-2 font-display text-2xl uppercase tracking-[0.15em] text-blaze;
+    transform: rotate(-6deg);
+  }
+
+  .eyebrow {
+    @apply font-mono text-xs uppercase tracking-[0.2em] text-ink-soft;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
