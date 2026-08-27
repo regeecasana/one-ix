@@ -1,9 +1,9 @@
 # @oneix/zendesk-app
 
-Zendesk Apps Framework (ZAF) v2 ticket sidebar app. Shows the customer's
-Unified Profile behind a support ticket -- campaign source, saved setup,
-XL Points balance, activation history -- and lets an agent grant goodwill
-points in one click.
+Zendesk Apps Framework (ZAF) v2 ticket sidebar app. Shows the customer
+profile behind an activity ticket -- saved setup, the live interaction
+timeline (every click, save, and activation), and any active voucher --
+and lets an agent issue or resend a time-limited voucher in one click.
 
 See [../../docs/zendesk-app.md](../../docs/zendesk-app.md) for the full
 design (ticket → customer resolution, UI states, auth) and

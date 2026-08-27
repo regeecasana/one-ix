@@ -1,25 +1,27 @@
 # oneix
 
 A demo for a telco (XLSmart), following one customer — **Ravta** — through
-two acts: she lands from a TikTok campaign, builds a personalized
-connectivity setup, saves it without activating, and gets nudged back with
-a points bonus once a simulated CDP notices high intent. Separately, she
-emails support about a network issue, and the agent sees her full customer
-profile immediately — no "what's your account number" — via a custom
-**Zendesk ticket sidebar app**.
+a connectivity storefront wired directly into Zendesk. She lands on the
+site, gets identified by email 30 seconds in (which opens a real Zendesk
+ticket), and every meaningful action she takes from that point on -- viewing
+a plan, saving a setup, activating, closing the tab -- lands as a live
+comment on that ticket. An agent watching the ticket sees exactly where she
+dropped off, checks whether she's eligible for a voucher on the item she
+abandoned, and sends one from the ticket sidebar app. If she ignores it, the
+voucher expires in 30-60 minutes and the agent can resend with an extended
+window before giving up and closing the ticket.
 
 ```
-Act 1 — acquisition + CDP nudge
-Ravta:  TikTok ad → Connectivity Builder → recommended plan → "save my
-        setup" (mobile + OTP, +5,000 XL points) → doesn't activate
-system: CDP sweep notices saved-but-not-activated, high intent
-Ravta:  gets an email nudge → returns → activates (+5,000 more points)
-
-Act 2 — proactive support contact (independent of Act 1)
-Ravta:  emails support about a network issue
-system: creates a Zendesk ticket carrying her Unified Profile
-agent:  opens the ticket, already has full context, grants goodwill points
-        from the sidebar app in one click
+Ravta:  visits the site → 30s in, enters her email → Zendesk ticket opens
+system: every click, save, and activation is mirrored onto that ticket
+        as a comment in real time
+Ravta:  runs the Connectivity Builder → gets a recommended plan → "Save My
+        Setup" → closes the tab without activating
+agent:  sees the abandonment in the ticket, checks voucher eligibility for
+        the item, sends a 20%-off voucher to her email (sidebar app)
+Ravta:  ignores it for the voucher's lifespan → agent resends with a longer
+        window the next day → she returns and activates, or the agent
+        closes the ticket if she never does
 ```
 
 Read [docs/user-stories.md](docs/user-stories.md) for the full narrative,
@@ -27,12 +29,13 @@ including the other scenarios the demo needs to cover.
 
 ## What's real, what's not
 
-Everything is real except payment, and the OTP is a demo prop: activation
-writes an actual `Order` record in the backend, points are a real running
-balance, the Zendesk ticket is a real ticket in a real Zendesk instance,
-and every email is a real email (sent to a disposable Ethereal inbox by
-default). The "OTP" is a code logged server-side rather than sent by real
-SMS, and there's no AI-diagnosis step before human handoff — see
+Everything is real except payment: activation writes an actual `Order`
+record in the backend, vouchers are real time-limited codes validated
+server-side, the Zendesk ticket is a real ticket in a real Zendesk
+instance with real comments, and every email is a real email (sent to a
+disposable Ethereal inbox by default). There's no AI-diagnosis step before
+human handoff, and no background jobs -- the agent drives the voucher
+lifecycle by hand, which is the point of the demo. See
 [docs/architecture.md](docs/architecture.md) for exactly what's simulated.
 
 ## Structure
@@ -55,7 +58,6 @@ docs/             Architecture, data model, API spec, and demo runbook
 | storefront | React + Vite + TypeScript, Tailwind, React Router, Zustand | **Vercel** |
 | api | Node.js + Express + TypeScript, Prisma ORM | **Render** (Web Service) |
 | database | PostgreSQL | **Neon** (serverless, scale-to-zero) — same DB for local dev and hosted, no SQLite-vs-Postgres drift |
-| scheduling | `node-cron` in-process (the CDP sweep) | runs inside the Render service; see [docs/hosting.md](docs/hosting.md) for how it stays alive on a free host |
 | email | Nodemailer + Ethereal (disposable inbox, preview URL logged to console) | Ethereal itself — no hosting needed |
 | zendesk-app | Zendesk Apps Framework (ZAF) v2 + React | hosted **by Zendesk** once uploaded as a private app — no separate host |
 | Zendesk ticketing | Zendesk REST API | Zendesk trial/sandbox instance |
@@ -81,12 +83,12 @@ Each app has its own README. The full design lives in `docs/`:
 ## Status
 
 `apps/api` and `apps/storefront` are fully implemented and verified end to
-end in a real browser: the full Act 1 (TikTok landing → Connectivity
-Builder → save setup with OTP → CDP nudge email → activate, with points
-awarded at each step) and Act 2 (support ticket → Unified Profile →
-goodwill points grant) both work as described in
+end in a real browser: landing → 30s email identification (opens a Zendesk
+ticket) → Connectivity Builder → recommended plan → save/activate, with
+every interaction mirrored to the ticket as a comment, plus agent-issued
+voucher redemption at checkout, as described in
 [docs/user-stories.md](docs/user-stories.md). No accounts/signup — identity
-is resolved by mobile number/email, and the OTP is a demo prop.
+is resolved by email only.
 `apps/zendesk-app` is still a scaffold with no UI — see
 [docs/roadmap.md](docs/roadmap.md) for what's left.
 

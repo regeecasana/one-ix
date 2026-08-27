@@ -11,6 +11,7 @@ Thumbs.db
 !.vscode/extensions.json
 .turbo/
 coverage/
+*.tsbuildinfo
 
 # Zendesk app build output
 apps/zendesk-app/dist/
