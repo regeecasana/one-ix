@@ -3,6 +3,11 @@
 # directly from source via ../render.yaml (see docs/hosting.md).
 FROM node:20-alpine
 
+# Prisma's query engine needs OpenSSL, which the alpine base image doesn't
+# ship by default -- without this, `prisma generate`/`db push` fail with an
+# opaque "Could not parse schema engine response" error.
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 # Copy just the workspace manifests first so `npm install` is cached across
