@@ -1,7 +1,7 @@
 # Data Model
 
-Owned entirely by `apps/api` (Prisma). This is the intended shape -- the
-authoritative schema lives at `apps/api/prisma/schema.prisma`.
+Owned entirely by `apps/web` (Prisma, MongoDB). This is the intended shape
+-- the authoritative schema lives at `apps/web/prisma/schema.prisma`.
 
 Third shape this model has taken. What changed this round: `mobileNumber`/
 `pointsBalance` are gone from `Customer` (no more OTP, no more points --

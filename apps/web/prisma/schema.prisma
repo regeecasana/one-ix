@@ -1,0 +1,138 @@
+// Matches docs/data-model.md -- interaction-logging + voucher story.
+// MongoDB Atlas: same connection string for local dev and production (see
+// docs/hosting.md). IDs stay plain cuid strings rather than native
+// ObjectIds so the rest of the app (serializers, session signing, etc.)
+// doesn't need to know it's talking to Mongo.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  // Matches the env var Vercel's MongoDB Atlas integration auto-injects --
+  // no manual env var wiring needed at deploy time.
+  url      = env("MONGODB_URI")
+}
+
+model Customer {
+  id             String   @id @default(cuid()) @map("_id")
+  email          String   @unique
+  name           String?
+  activeTicketId String? // the Zendesk ticket currently receiving interaction comments
+  createdAt      DateTime @default(now())
+
+  carts             Cart[]
+  orders            Order[]
+  vouchers          Voucher[]
+  interactionEvents InteractionEvent[]
+  supportTickets    SupportTicket[]
+}
+
+model Product {
+  id          String @id @default(cuid()) @map("_id")
+  name        String
+  description String
+  priceCents  Int
+  imageUrl    String
+  stock       Int
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+  vouchers   Voucher[]
+}
+
+model Cart {
+  id                   String   @id @default(cuid()) @map("_id")
+  customerId           String?
+  status               String   @default("active") // active | converted
+  lastActivityAt       DateTime @default(now())
+  utmSource            String?
+  utmCampaign          String?
+  utmContent           String?
+  recommendationReason String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  customer Customer?  @relation(fields: [customerId], references: [id])
+  items    CartItem[]
+  order    Order?
+}
+
+model CartItem {
+  id             String @id @default(cuid()) @map("_id")
+  cartId         String
+  productId      String
+  quantity       Int
+  unitPriceCents Int
+
+  cart    Cart    @relation(fields: [cartId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Order {
+  id            String   @id @default(cuid()) @map("_id")
+  cartId        String   @unique
+  customerId    String
+  status        String   @default("paid")
+  subtotalCents Int
+  discountCents Int      @default(0)
+  totalCents    Int
+  voucherId     String?
+  createdAt     DateTime @default(now())
+
+  cart     Cart        @relation(fields: [cartId], references: [id])
+  customer Customer    @relation(fields: [customerId], references: [id])
+  voucher  Voucher?    @relation(fields: [voucherId], references: [id])
+  items    OrderItem[]
+}
+
+model OrderItem {
+  id             String @id @default(cuid()) @map("_id")
+  orderId        String
+  productId      String
+  quantity       Int
+  unitPriceCents Int
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Voucher {
+  id              String    @id @default(cuid()) @map("_id")
+  code            String    @unique
+  customerId      String
+  productId       String
+  percentOff      Int
+  status          String    @default("active") // active | redeemed | expired
+  expiresAt       DateTime
+  issuedBy        String // agent
+  resendCount     Int       @default(0)
+  zendeskTicketId String?
+  createdAt       DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  product  Product  @relation(fields: [productId], references: [id])
+  orders   Order[]
+}
+
+model InteractionEvent {
+  id         String   @id @default(cuid()) @map("_id")
+  customerId String
+  type       String // viewed_product | saved_setup | started_builder | completed_builder | closed_tab | activated | ...
+  detail     String
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+}
+
+model SupportTicket {
+  id              String   @id @default(cuid()) @map("_id")
+  customerId      String
+  zendeskTicketId String?
+  subject         String
+  message         String
+  createdAt       DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+}

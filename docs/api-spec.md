@@ -1,14 +1,17 @@
-# API Surface (apps/api)
+# API Surface (apps/web)
 
-Two audiences, two trust levels:
+Implemented as Next.js Route Handlers under `apps/web/src/app/api/`, same
+origin as the storefront (no separate host, no CORS). Two audiences, two
+trust levels:
 
-- **Public API** (`/api/*`) -- called by the storefront. No auth beyond an
-  email address; this is a demo, not a real account system.
+- **Public API** (`/api/*`) -- called by the storefront. No account system;
+  identity is resolved by email plus a session token (see below).
 - **Internal API** (`/api/internal/*`) -- called only by the Zendesk
   sidebar app. Requires a shared secret header (`X-Internal-Token`)
   configured at install time. Never exposed to the storefront.
 
-Money is always integer cents on the wire.
+Money is always integer cents (actually whole Rupiah, see
+[data-model.md](data-model.md)) on the wire.
 
 ## Public API
 
@@ -22,11 +25,22 @@ Money is always integer cents on the wire.
 | POST | `/api/carts/:id/items` | add/update a line item |
 | DELETE | `/api/carts/:id/items/:itemId` | remove a line item |
 | PATCH | `/api/carts/:id` | set `recommendationReason` |
-| POST | `/api/identify` | body `{ email }`. Find-or-create `Customer`, and if they don't already have an `activeTicketId`, create one and flush any buffered pre-identification events. Returns `{ customerId }` |
-| POST | `/api/customers/:customerId/interactions` | body `{ type, detail }`. Logs one `InteractionEvent` and, if the customer has an `activeTicketId`, posts it as a comment. This is the endpoint behind every "Ravta did X" beat in [user-stories.md](user-stories.md) |
+| POST | `/api/identify` | body `{ email, name?, cartId?, bufferedEvents? }`. Find-or-create `Customer`, and if they don't already have an `activeTicketId`, create one and flush any buffered pre-identification events. Returns `{ customerId, sessionToken }` |
+| POST | `/api/customers/:customerId/interactions` | body `{ type, detail, sessionToken }`. `sessionToken` must verify against `:customerId` (HMAC-signed at identify time, see below) or the request is rejected with 403 -- otherwise anyone who learns a customerId could post fabricated comments onto that customer's ticket. Logs one `InteractionEvent` and, if the customer has an `activeTicketId`, posts it as a comment. This is the endpoint behind every "customer did X" beat in [user-stories.md](user-stories.md) |
 | GET | `/api/vouchers/:code?customerId=&productId=` | validate a voucher before submitting checkout. Rate-limited, requires both ids -- same reasoning as the old coupon-validation endpoint (a code alone isn't a secret worth exposing as an enumeration oracle) |
 | POST | `/api/carts/:id/checkout/complete` | create the `Order` (mock payment), optionally applying `voucherCode`; marks cart `converted` |
 | POST | `/api/support/tickets` | unchanged from the previous round -- a separate, standalone contact-support flow not yet reconciled with the per-customer activity ticket above |
+
+### Session tokens
+
+`sessionToken` is `HMAC-SHA256(customerId, SESSION_SECRET)`, issued once by
+`/api/identify` and echoed back on every interaction call (verified with a
+timing-safe comparison). It does **not** verify email ownership -- that's a
+deliberate, already-documented tradeoff of skipping OTP/magic-link
+verification for demo velocity (see [architecture.md](architecture.md)).
+What it does close: a third party who merely observes or guesses a
+customerId, without ever having called `/api/identify` themselves, can't
+spam interaction events onto a ticket that isn't theirs.
 
 ## Internal API (Zendesk sidebar app)
 

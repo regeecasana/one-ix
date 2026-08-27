@@ -1,6 +1,6 @@
 # Transactional Emails
 
-Sent by `apps/api` via the `EmailProvider` interface (default implementation:
+Sent by `apps/web` via the `EmailProvider` interface (default implementation:
 Nodemailer + Ethereal -- see [demo-setup.md](demo-setup.md)). Two templates.
 
 ## 1. Voucher email

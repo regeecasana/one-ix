@@ -42,29 +42,28 @@ lifecycle by hand, which is the point of the demo. See
 
 ```
 apps/
-  storefront/    React + Vite storefront — landing/builder/setup/activation
-  api/            Node/Express + Prisma backend — the single source of truth
-  zendesk-app/    Zendesk ticket sidebar app (ZAF v2 + React)
+  web/            Next.js app — storefront (App Router) + API (Route Handlers)
+                  in one deployable unit. Prisma + MongoDB Atlas.
+  zendesk-app/    Zendesk ticket sidebar app (ZAF v2 + React) — hosted by
+                  Zendesk itself, stays a separate deploy regardless of
+                  what apps/web is built with.
 packages/
-  shared/         TypeScript types shared by all three apps
-infra/            Docker Compose setup for running api + storefront locally
+  shared/         TypeScript types shared by both apps
 docs/             Architecture, data model, API spec, and demo runbook
 ```
 
 ## Tech stack
 
-| Layer | Choice | Hosted (free tier) on |
+| Layer | Choice | Hosted on |
 |---|---|---|
-| storefront | React + Vite + TypeScript, Tailwind, React Router, Zustand | **Vercel** |
-| api | Node.js + Express + TypeScript, Prisma ORM | **Render** (Web Service) |
-| database | PostgreSQL | **Neon** (serverless, scale-to-zero) — same DB for local dev and hosted, no SQLite-vs-Postgres drift |
+| storefront + api | Next.js (App Router + Route Handlers), TypeScript, Tailwind, Zustand, Prisma | **Vercel** — one project, one deploy |
+| database | MongoDB (Atlas) | **MongoDB Atlas** — same connection string for local dev and production |
 | email | Nodemailer + Ethereal (disposable inbox, preview URL logged to console) | Ethereal itself — no hosting needed |
 | zendesk-app | Zendesk Apps Framework (ZAF) v2 + React | hosted **by Zendesk** once uploaded as a private app — no separate host |
 | Zendesk ticketing | Zendesk REST API | Zendesk trial/sandbox instance |
 
 Full rationale in [docs/architecture.md](docs/architecture.md); exact
-deploy steps per service in [docs/hosting.md](docs/hosting.md). Nothing in
-this stack requires a credit card.
+deploy steps in [docs/hosting.md](docs/hosting.md).
 
 Each app has its own README. The full design lives in `docs/`:
 
@@ -82,11 +81,11 @@ Each app has its own README. The full design lives in `docs/`:
 
 ## Status
 
-`apps/api` and `apps/storefront` are fully implemented and verified end to
-end in a real browser: landing → 30s email identification (opens a Zendesk
-ticket) → Connectivity Builder → recommended plan → save/activate, with
-every interaction mirrored to the ticket as a comment, plus agent-issued
-voucher redemption at checkout, as described in
+`apps/web` is fully implemented, deployed, and verified end to end in a
+real browser against MongoDB Atlas: landing → 30s email identification
+(opens a Zendesk ticket) → Connectivity Builder → recommended plan →
+save/activate, with every interaction mirrored to the ticket as a comment,
+plus agent-issued voucher redemption at checkout, as described in
 [docs/user-stories.md](docs/user-stories.md). No accounts/signup — identity
 is resolved by email only.
 `apps/zendesk-app` is still a scaffold with no UI — see
@@ -94,26 +93,11 @@ is resolved by email only.
 
 ## Quick start
 
-With Docker (no local Node/Postgres install needed for `api`/`storefront`):
-
-```
-cp apps/api/.env.example apps/api/.env
-cp apps/storefront/.env.example apps/storefront/.env
-cd infra && docker compose up --build
-```
-
-Without Docker:
-
 ```
 npm install
-cp apps/api/.env.example apps/api/.env             # Neon connection string, Zendesk credentials, etc.
-cp apps/storefront/.env.example apps/storefront/.env
-npm run dev:api
-npm run dev:storefront
-npm run dev:zendesk-app
+cp apps/web/.env.example apps/web/.env.local   # MongoDB Atlas connection string, Zendesk credentials, etc.
+npm run dev:web
 ```
 
-Full local setup (both paths) is in [docs/demo-setup.md](docs/demo-setup.md)
-and [infra/README.md](infra/README.md); deploying the whole thing to Vercel +
-Render + Neon for free — without Docker — is in
-[docs/hosting.md](docs/hosting.md).
+Full local setup is in [docs/demo-setup.md](docs/demo-setup.md); deploying
+to Vercel + MongoDB Atlas is in [docs/hosting.md](docs/hosting.md).

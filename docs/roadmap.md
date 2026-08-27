@@ -45,9 +45,10 @@ Monorepo structure, docs. Done.
 - Demoable today via the API standing in for the sidebar app; full
   end-to-end demo needs `zendesk-app` too.
 
-## Phase 5 -- Deploy to free hosting
+## Phase 5 -- Deploy to hosting
 
-Neon + Render + Vercel + a Zendesk trial instance. See [hosting.md](hosting.md).
+MongoDB Atlas + Vercel (one project) + a Zendesk trial instance. See
+[hosting.md](hosting.md). Done -- live at the Vercel production URL.
 
 ## Explicitly out of scope
 

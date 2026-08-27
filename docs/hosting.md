@@ -1,63 +1,61 @@
-# Hosting (free tiers)
+# Hosting
 
-This is a demo, so every piece runs on a free tier. That constrains a couple
-of design choices below — noted inline.
+`apps/web` is a single Next.js app (storefront + API) deployed as one
+Vercel project. There's no separate backend host and no CORS to configure
+-- the storefront and API are the same origin.
 
-| Piece | Where | Free tier | Notes |
-|---|---|---|---|
-| `storefront` | **Vercel** | yes, no card required | static Vite/React build, zero-config framework detection |
-| `api` | **Render** (Web Service) | yes, no card required | spins down after ~15 min idle; cold start on the next request. No background jobs in this build, so that's the only consequence -- see [api-spec.md](api-spec.md) |
-| database | **Neon** (Postgres) | yes, no card required | serverless Postgres, scales to zero when idle, wakes automatically on connect — used for both local dev and the hosted demo |
-| email | **Ethereal** (via Nodemailer) | yes, no signup at all | disposable inbox auto-created per run; `api` logs a preview URL for every send |
-| Zendesk ticketing | **Zendesk trial/sandbox** | 14-day free trial | the ticket system itself; the sidebar app is uploaded into it, not hosted separately |
-| `zendesk-app` | hosted **by Zendesk** | included with the trial | once built and uploaded as a private app (`.zip`), Zendesk serves the sidebar app's assets itself — no separate static host needed. Local dev instead uses `zat server`, which tunnels the app from your machine |
+| Piece | Where | Notes |
+|---|---|---|
+| `apps/web` (storefront + api) | **Vercel** | one project, Root Directory set to `apps/web`; every push to `main` redeploys |
+| database | **MongoDB Atlas** | same connection string for local dev and production -- no local-vs-hosted drift |
+| email | **Ethereal** (via Nodemailer) | disposable inbox auto-created per run; the app logs a preview URL for every send |
+| Zendesk ticketing | **Zendesk trial/sandbox** | 14-day free trial; the sidebar app is uploaded into it, not hosted separately |
+| `zendesk-app` | hosted **by Zendesk** | once built and uploaded as a private app (`.zip`), Zendesk serves the sidebar app's assets itself. Local dev instead uses `zat server`, which tunnels the app from your machine |
 
-Nothing here needs a credit card. Re-provisioning any piece if a free trial
-lapses (mainly the Zendesk trial) is a matter of re-running the steps below
-against a new instance.
+## apps/web → Vercel
 
-## storefront → Vercel
+This is an npm-workspaces monorepo, so the Vercel project needs two
+non-default settings (one-time, via the dashboard or `vercel api`):
 
-1. Import the repo into Vercel, set the project's **root directory** to
-   `apps/storefront` (Vercel supports this per-project in a monorepo — no
-   `vercel.json` needed, Vite is auto-detected).
-2. Set env var `VITE_API_BASE_URL` to the deployed `api` URL (from Render,
-   below).
-3. Every push to `main` redeploys automatically.
+1. **Root Directory**: `apps/web`. Vercel then auto-detects it's part of an
+   npm workspace and runs `npm install` from the repo root (so
+   `@oneix/shared` resolves) before running `apps/web`'s own build.
+2. **Framework Preset**: `Next.js` (should auto-detect once Root Directory
+   is correct; if a deploy fails with "No Output Directory named public
+   found", the framework preset got reset to "Other" -- set it back
+   explicitly).
 
-## api → Render
+Env vars (Project Settings → Environment Variables), same names as
+`apps/web/.env.example`:
 
-1. New → Web Service, root directory `apps/api`, build command
-   `npm install && npx prisma generate && npm run build`, start command
-   `npm start`, instance type **Free**.
-2. Set the env vars from `apps/api/.env.example` (`DATABASE_URL` from Neon,
-   `STOREFRONT_URL` = the Vercel URL, `INTERNAL_API_TOKEN`, Zendesk
-   credentials, etc).
-3. Enable CORS on `api` for the Vercel origin — the storefront and the API
-   are on different domains once hosted (`app.use(cors({ origin: STOREFRONT_URL }))`
-   or equivalent).
+| var | purpose |
+|---|---|
+| `MONGODB_URI` | Atlas connection string. Named to match what Vercel's MongoDB Atlas integration auto-injects if you add that integration instead of setting it by hand |
+| `SESSION_SECRET` | signs the per-customer session token (see [api-spec.md](api-spec.md)) -- set this explicitly in production; the random-per-process fallback used for local dev would invalidate sessions on every cold start |
+| `INTERNAL_API_TOKEN` | shared secret the Zendesk sidebar app sends as `X-Internal-Token` |
+| `ZENDESK_SUBDOMAIN` / `ZENDESK_EMAIL` / `ZENDESK_API_TOKEN` | Zendesk API auth |
+| `VOUCHER_TTL_MINUTES` | default `30`, matches the story |
+| `NEXT_PUBLIC_SITE_URL` | optional -- only needed for a custom domain; Vercel's `VERCEL_URL` covers the default `*.vercel.app` deployment automatically |
 
-A `render.yaml` blueprint at the repo root captures this so the service can
-be created with **New → Blueprint** instead of clicking through manually —
-see [../render.yaml](../render.yaml).
+## database → MongoDB Atlas
 
-## database → Neon
+1. Create a free Atlas cluster (M0 is enough -- it's still a replica set,
+   which Prisma's MongoDB connector requires for the `$transaction` calls
+   in voucher issuance and checkout).
+2. Copy the connection string into `MONGODB_URI`, both locally
+   (`apps/web/.env` and `.env.local`) and in Vercel's project env vars.
+3. `npm run db:push --workspace=apps/web` against it once to create the
+   unique indexes (email, voucher code, cart↔order), then
+   `npm run seed --workspace=apps/web`.
 
-1. Create a free Neon project, copy the pooled connection string into
-   `DATABASE_URL` (both locally, in `apps/api/.env`, and in Render's env
-   vars).
-2. `npm run prisma:migrate --workspace=apps/api` against it once to create
-   the schema, then `npm run seed --workspace=apps/api`.
-
-Using the same Neon database for local dev and the hosted demo avoids the
-classic "works on SQLite, breaks on Postgres" gap — there's only one
-provider to test against.
+Using the same Atlas cluster for local dev and the hosted demo means
+there's only one database to keep schema/indexes in sync on.
 
 ## Zendesk
 
-The Zendesk side isn't "hosted" by us at all — it's a trial/sandbox Zendesk
-instance (free for 14 days, renewable by creating a new trial if a demo needs
-to outlive that window) that hosts the ticket system and, once the app is
-uploaded, the sidebar app's assets too. See
+The Zendesk side isn't "hosted" by us at all -- it's a trial/sandbox
+Zendesk instance (free for 14 days, renewable by creating a new trial if a
+demo needs to outlive that window) that hosts the ticket system and, once
+the app is uploaded, the sidebar app's assets too. See
 [zendesk-app.md](zendesk-app.md) and [demo-setup.md](demo-setup.md) for
 setup.

@@ -1,14 +1,13 @@
 {
   "name": "oneix",
   "private": true,
-  "description": "XLSmart/Ravta telco demo: a CDP-driven connectivity-setup nudge and a proactive-support flow surfaced through a Zendesk ticket sidebar app",
+  "description": "XLSmart connectivity storefront: email identification, live interaction logging, agent-issued vouchers, and a Zendesk ticket sidebar app. apps/web is one Next.js app (storefront + API) on MongoDB Atlas, deployed as a single Vercel project.",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "dev:storefront": "npm run dev --workspace=apps/storefront",
-    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
     "dev:zendesk-app": "npm run dev --workspace=apps/zendesk-app",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
