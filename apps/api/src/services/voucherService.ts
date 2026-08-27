@@ -68,6 +68,9 @@ export async function resendVoucher(voucherId: string, ttlMinutes?: number): Pro
     include: { customer: true, product: true },
   });
   if (!voucher) throw new HttpError(404, "voucher_not_found");
+  // A redeemed voucher was already spent on a real order -- resending it
+  // would let the same code be applied to a second checkout for free.
+  if (voucher.status === "redeemed") throw new HttpError(409, "voucher_already_redeemed");
 
   const expiresAt = new Date(Date.now() + (ttlMinutes ?? env.voucherTtlMinutes) * 60_000);
   const updated = await prisma.voucher.update({

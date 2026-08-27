@@ -19,8 +19,8 @@ router.post(
   "/:customerId/interactions",
   interactionLimiter,
   asyncHandler(async (req, res) => {
-    const type = String(req.body?.type ?? "").trim();
-    const detail = String(req.body?.detail ?? "").trim();
+    const type = String(req.body?.type ?? "").trim().slice(0, 64);
+    const detail = String(req.body?.detail ?? "").trim().slice(0, 500);
     if (!type) throw new HttpError(400, "type_required");
     if (!detail) throw new HttpError(400, "detail_required");
 
