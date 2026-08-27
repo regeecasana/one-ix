@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import type { Voucher } from "@oneix/shared";
 import { useProducts } from "../hooks/useProducts";
 import { formatCents } from "../lib/money";
 import { useCartStore } from "../store/cartStore";
 import { Button } from "../components/Button";
-import { ApiError } from "../lib/api";
+import { validateVoucher } from "../lib/api";
 
 export function SetupPage() {
   const cart = useCartStore((s) => s.cart);
@@ -12,23 +13,26 @@ export function SetupPage() {
   const refresh = useCartStore((s) => s.refresh);
   const addItem = useCartStore((s) => s.addItem);
   const removeItem = useCartStore((s) => s.removeItem);
-  const requestOtp = useCartStore((s) => s.requestOtp);
-  const verifyOtp = useCartStore((s) => s.verifyOtp);
+  const identify = useCartStore((s) => s.identify);
   const completeActivation = useCartStore((s) => s.completeActivation);
   const { products } = useProducts();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [email, setEmail] = useState("");
-  const [mobileNumber, setMobileNumber] = useState("");
   const [name, setName] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [pointsJustEarned, setPointsJustEarned] = useState(false);
+  const [identifying, setIdentifying] = useState(false);
+  const [identifyError, setIdentifyError] = useState<string | null>(null);
+
+  const [voucherCode, setVoucherCode] = useState(searchParams.get("voucher") ?? "");
+  const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [checkingVoucher, setCheckingVoucher] = useState(false);
+
   const [activating, setActivating] = useState(false);
   const [activateError, setActivateError] = useState<string | null>(null);
+
+  const autoActivated = useRef(false);
 
   useEffect(() => {
     refresh();
@@ -37,52 +41,49 @@ export function SetupPage() {
 
   const productMap = new Map((products ?? []).map((p) => [p.id, p]));
   const subtotalCents = (cart?.items ?? []).reduce((sum, item) => sum + item.quantity * item.unitPriceCents, 0);
+  const discountCents = appliedVoucher ? Math.round((subtotalCents * appliedVoucher.percentOff) / 100) : 0;
 
-  if (loading && !cart) {
-    return <p className="font-mono text-sm text-ink-soft">Loading your setup…</p>;
-  }
-
-  if (!cart || cart.items.length === 0) {
-    return (
-      <div className="flex flex-col gap-4">
-        <h1 className="font-display text-3xl font-bold uppercase text-ink">My Setup</h1>
-        <p className="font-body text-ink-soft">Your setup is empty.</p>
-        <Link to="/builder" className="font-mono text-sm uppercase tracking-[0.08em] text-blaze underline underline-offset-4">
-          Build my setup
-        </Link>
-      </div>
-    );
-  }
-
-  async function handleSendCode(e: React.FormEvent) {
-    e.preventDefault();
-    setSaveError(null);
-    setSendingOtp(true);
+  async function handleCheckVoucher(code: string) {
+    if (!cart?.customerId || !code.trim()) return;
+    setCheckingVoucher(true);
+    setVoucherError(null);
+    setAppliedVoucher(null);
     try {
-      await requestOtp(mobileNumber.trim());
-      setOtpSent(true);
-    } catch {
-      setSaveError("Couldn't send a code. Check the number and try again.");
+      let firstReason: string | undefined;
+      for (const item of cart.items) {
+        const result = await validateVoucher(code.trim().toUpperCase(), cart.customerId, item.productId);
+        if (result.valid && result.voucher) {
+          setAppliedVoucher(result.voucher);
+          setCheckingVoucher(false);
+          return;
+        }
+        firstReason ??= result.reason;
+      }
+      setVoucherError(
+        firstReason === "expired" ? "That voucher has expired." : firstReason === "redeemed" ? "That voucher was already used." : "That voucher code isn't valid for this setup."
+      );
     } finally {
-      setSendingOtp(false);
+      setCheckingVoucher(false);
     }
   }
 
-  async function handleVerify(e: React.FormEvent) {
+  useEffect(() => {
+    const code = searchParams.get("voucher");
+    if (code && cart?.customerId) handleCheckVoucher(code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart?.customerId]);
+
+  async function handleIdentify(e: React.FormEvent) {
     e.preventDefault();
-    setSaveError(null);
-    setVerifying(true);
+    setIdentifyError(null);
+    setIdentifying(true);
     try {
-      await verifyOtp({ email: email.trim(), mobileNumber: mobileNumber.trim(), otp: otp.trim(), name: name.trim() || undefined });
-      setPointsJustEarned(true);
-    } catch (err) {
-      setSaveError(
-        err instanceof ApiError && err.message === "invalid_otp"
-          ? "That code doesn't match. Try again."
-          : "Couldn't verify. Try again."
-      );
+      await identify(email.trim(), name.trim() || undefined);
+      await refresh();
+    } catch {
+      setIdentifyError("Couldn't save that. Check your email and try again.");
     } finally {
-      setVerifying(false);
+      setIdentifying(false);
     }
   }
 
@@ -90,7 +91,7 @@ export function SetupPage() {
     setActivateError(null);
     setActivating(true);
     try {
-      await completeActivation();
+      await completeActivation(appliedVoucher?.code);
       navigate("/activated");
     } catch {
       setActivateError("Couldn't complete activation. Try again.");
@@ -99,55 +100,71 @@ export function SetupPage() {
     }
   }
 
+  useEffect(() => {
+    if (autoActivated.current) return;
+    if (searchParams.get("activate") === "1" && cart?.customerId && cart.items.length > 0 && !activating) {
+      autoActivated.current = true;
+      handleActivate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart?.customerId, cart?.items.length]);
+
+  if (loading && !cart) {
+    return <p className="font-mono text-sm text-ink-soft">Loading your setup…</p>;
+  }
+
+  if (!cart || cart.items.length === 0) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="font-display text-2xl font-bold text-ink">My Setup</h1>
+        <p className="font-body text-ink-soft">Your setup is empty.</p>
+        <Link to="/builder" className="font-display text-sm font-semibold text-blaze underline underline-offset-4">
+          Build my setup
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="font-display text-3xl font-bold uppercase text-ink">My Setup</h1>
+      <h1 className="font-display text-2xl font-bold text-ink sm:text-3xl">My Setup</h1>
 
-      <div className="flex flex-col border-t border-ink">
-        <div className="hidden border-b border-ink py-2 font-mono text-xs uppercase tracking-[0.1em] text-ink-soft sm:flex">
-          <span className="flex-1">Item</span>
-          <span className="w-28 text-right">Qty</span>
-          <span className="w-20 text-right">Unit</span>
-          <span className="w-20 text-right">Total</span>
-          <span className="w-16" />
-        </div>
-
+      <div className="flex flex-col gap-3">
         {cart.items.map((item) => {
           const product = productMap.get(item.productId);
           return (
-            <div key={item.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-hairline py-3">
-              <span className="w-full font-body text-ink sm:w-auto sm:flex-1">{product?.name ?? item.productId}</span>
-              <div className="inline-flex items-center border border-ink sm:w-28 sm:justify-center">
+            <div key={item.id} className="card-shadow flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-hairline bg-white p-4">
+              <span className="w-full font-display font-semibold text-ink sm:w-auto sm:flex-1">
+                {product?.name ?? item.productId}
+              </span>
+              <div className="inline-flex items-center rounded-full border border-hairline">
                 <button
                   type="button"
                   onClick={() =>
                     item.quantity - 1 <= 0 ? removeItem(item.id) : addItem(item.productId, item.quantity - 1)
                   }
-                  className="px-2 py-1 font-mono text-ink hover:bg-ink hover:text-canvas"
+                  className="px-3 py-1 font-display text-ink hover:text-blaze"
                   aria-label={`Decrease quantity of ${product?.name ?? "item"}`}
                 >
                   −
                 </button>
-                <span className="w-8 text-center font-mono tabular-nums text-ink">{item.quantity}</span>
+                <span className="w-8 text-center font-display tabular-nums text-ink">{item.quantity}</span>
                 <button
                   type="button"
                   onClick={() => addItem(item.productId, item.quantity + 1)}
-                  className="px-2 py-1 font-mono text-ink hover:bg-ink hover:text-canvas"
+                  className="px-3 py-1 font-display text-ink hover:text-blaze"
                   aria-label={`Increase quantity of ${product?.name ?? "item"}`}
                 >
                   +
                 </button>
               </div>
-              <span className="font-mono text-sm tabular-nums text-ink-soft sm:w-20 sm:text-right sm:text-base sm:text-ink">
-                {formatCents(item.unitPriceCents)}
-              </span>
-              <span className="font-mono tabular-nums text-ink sm:w-20 sm:text-right">
+              <span className="font-display tabular-nums text-ink sm:w-24 sm:text-right">
                 {formatCents(item.unitPriceCents * item.quantity)}
               </span>
               <button
                 type="button"
                 onClick={() => removeItem(item.id)}
-                className="font-mono text-xs uppercase tracking-[0.08em] text-ink-soft underline underline-offset-4 hover:text-blaze sm:w-16 sm:text-right"
+                className="font-display text-xs font-semibold text-ink-soft underline underline-offset-4 hover:text-pink sm:w-16 sm:text-right"
               >
                 Remove
               </button>
@@ -156,101 +173,90 @@ export function SetupPage() {
         })}
       </div>
 
-      <div className="flex items-center justify-between border-t border-ink pt-4">
-        <span className="eyebrow">Subtotal / mo</span>
-        <span className="font-mono text-xl tabular-nums text-ink">{formatCents(subtotalCents)}</span>
+      <div className="flex flex-col gap-1 rounded-2xl bg-lavender p-5">
+        <div className="flex items-center justify-between font-body text-sm text-ink-soft">
+          <span>Subtotal / mo</span>
+          <span className="tabular-nums">{formatCents(subtotalCents)}</span>
+        </div>
+        {appliedVoucher && (
+          <div className="flex items-center justify-between font-body text-sm text-moss">
+            <span>Voucher {appliedVoucher.code} (-{appliedVoucher.percentOff}%)</span>
+            <span className="tabular-nums">-{formatCents(discountCents)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between font-display text-xl font-bold text-ink">
+          <span>Total / mo</span>
+          <span className="tabular-nums">{formatCents(subtotalCents - discountCents)}</span>
+        </div>
       </div>
 
       {!cart.customerId && (
-        <section className="flex flex-col gap-3 border border-hairline bg-canvas p-5">
-          <h2 className="eyebrow">Save my setup</h2>
+        <section className="card-shadow flex flex-col gap-3 rounded-2xl border border-hairline bg-white p-5">
+          <h2 className="font-display text-sm font-bold text-ink">Save my setup</h2>
           <p className="font-body text-sm text-ink-soft">
-            Verify your number and get 5,000 XL points -- come back and finish activating whenever you're ready.
+            Add your email so we can hold this setup for you and reach you if you need a hand.
           </p>
-
-          {!otpSent ? (
-            <form onSubmit={handleSendCode} className="flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap">
-              <label className="flex flex-col gap-1 sm:flex-1 sm:basis-48">
-                <span className="font-mono text-xs uppercase tracking-[0.08em] text-ink-soft">Email</span>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="border border-ink bg-canvas px-3 py-2 font-body text-ink outline-none focus-visible:outline-2 focus-visible:outline-blaze"
-                  placeholder="ravta@example.com"
-                />
-              </label>
-              <label className="flex flex-col gap-1 sm:flex-1 sm:basis-48">
-                <span className="font-mono text-xs uppercase tracking-[0.08em] text-ink-soft">Mobile number</span>
-                <input
-                  type="tel"
-                  required
-                  value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
-                  className="border border-ink bg-canvas px-3 py-2 font-body text-ink outline-none focus-visible:outline-2 focus-visible:outline-blaze"
-                  placeholder="+62 812 3456 7890"
-                />
-              </label>
-              <label className="flex flex-col gap-1 sm:flex-1 sm:basis-48">
-                <span className="font-mono text-xs uppercase tracking-[0.08em] text-ink-soft">Name (optional)</span>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="border border-ink bg-canvas px-3 py-2 font-body text-ink outline-none focus-visible:outline-2 focus-visible:outline-blaze"
-                  placeholder="Ravta"
-                />
-              </label>
-              <Button type="submit" disabled={sendingOtp || !email.trim() || !mobileNumber.trim()}>
-                {sendingOtp ? "Sending…" : "Send code"}
-              </Button>
-            </form>
-          ) : (
-            <form onSubmit={handleVerify} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <p className="w-full font-body text-sm text-ink">
-                Code sent to <span className="font-mono">{mobileNumber}</span>.
-              </p>
-              <label className="flex flex-col gap-1 sm:flex-1">
-                <span className="font-mono text-xs uppercase tracking-[0.08em] text-ink-soft">6-digit code</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  required
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  className="border border-ink bg-canvas px-3 py-2 font-mono text-ink outline-none focus-visible:outline-2 focus-visible:outline-blaze"
-                  placeholder="000000"
-                />
-              </label>
-              <Button type="submit" disabled={verifying || !otp.trim()}>
-                {verifying ? "Verifying…" : "Verify & save"}
-              </Button>
-            </form>
-          )}
-
-          {saveError && <p className="font-body text-sm text-blaze">{saveError}</p>}
+          <form onSubmit={handleIdentify} className="flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap">
+            <label className="flex flex-col gap-1 sm:flex-1 sm:basis-48">
+              <span className="font-display text-xs font-semibold text-ink-soft">Email</span>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="rounded-xl border border-hairline bg-white px-3 py-2 font-body text-ink outline-none focus-visible:border-blaze"
+                placeholder="ravta@example.com"
+              />
+            </label>
+            <label className="flex flex-col gap-1 sm:flex-1 sm:basis-48">
+              <span className="font-display text-xs font-semibold text-ink-soft">Name (optional)</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="rounded-xl border border-hairline bg-white px-3 py-2 font-body text-ink outline-none focus-visible:border-blaze"
+                placeholder="Ravta"
+              />
+            </label>
+            <Button type="submit" disabled={identifying || !email.trim()}>
+              {identifying ? "Saving…" : "Save setup"}
+            </Button>
+          </form>
+          {identifyError && <p className="font-body text-sm text-pink">{identifyError}</p>}
         </section>
       )}
 
       {cart.customerId && (
-        <section className="flex flex-col gap-3 border border-hairline bg-canvas p-5">
-          {pointsJustEarned && (
-            <p className="font-mono text-sm text-moss">+5,000 XL points earned. Your setup is saved.</p>
-          )}
-          <h2 className="eyebrow">Ready to activate</h2>
-          <div className="flex items-center justify-between font-mono text-xl tabular-nums text-ink">
-            <span>Total / mo</span>
-            <span>{formatCents(subtotalCents)}</span>
+        <section className="card-shadow flex flex-col gap-3 rounded-2xl border border-hairline bg-white p-5">
+          <h2 className="font-display text-sm font-bold text-ink">Have a voucher?</h2>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-1 basis-48 flex-col gap-1">
+              <span className="font-display text-xs font-semibold text-ink-soft">Voucher code</span>
+              <input
+                type="text"
+                value={voucherCode}
+                onChange={(e) => setVoucherCode(e.target.value)}
+                className="rounded-xl border border-hairline bg-white px-3 py-2 font-mono text-ink outline-none focus-visible:border-blaze"
+                placeholder="SAVE20-XXXXXX"
+              />
+            </label>
+            <Button variant="secondary" type="button" disabled={checkingVoucher || !voucherCode.trim()} onClick={() => handleCheckVoucher(voucherCode)}>
+              {checkingVoucher ? "Checking…" : "Apply"}
+            </Button>
           </div>
-          {activateError && <p className="font-body text-sm text-blaze">{activateError}</p>}
+          {voucherError && <p className="font-body text-sm text-pink">{voucherError}</p>}
+          {appliedVoucher && <p className="font-body text-sm text-moss">Voucher applied -- {appliedVoucher.percentOff}% off.</p>}
+
+          <div className="mt-2 flex items-center justify-between font-display text-xl font-bold tabular-nums text-ink">
+            <span>Total / mo</span>
+            <span>{formatCents(subtotalCents - discountCents)}</span>
+          </div>
+          {activateError && <p className="font-body text-sm text-pink">{activateError}</p>}
           <div className="flex flex-wrap items-center gap-3">
             <Button onClick={handleActivate} disabled={activating}>
               {activating ? "Activating…" : "Activate now"}
             </Button>
-            <span className="font-body text-sm text-ink-soft">
-              or come back later -- we'll remind you if you don't.
-            </span>
+            <span className="font-body text-sm text-ink-soft">or come back later -- we'll follow up if you don't.</span>
           </div>
         </section>
       )}

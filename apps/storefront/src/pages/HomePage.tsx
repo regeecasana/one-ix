@@ -27,41 +27,41 @@ export function HomePage() {
   const campaignLabel = utmCampaign ? CAMPAIGN_COPY[utmCampaign] ?? utmCampaign : null;
 
   return (
-    <div className="flex flex-col gap-12">
-      <section className="max-w-2xl">
+    <div className="flex flex-col gap-14">
+      <section className="overflow-hidden rounded-3xl bg-gradient-primary px-6 py-14 text-center sm:px-12">
         {campaignLabel && (
-          <p className="eyebrow mb-3">
+          <p className="font-display text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
             From {utmSource ?? "our campaign"} · {campaignLabel}
           </p>
         )}
-        <h1 className="font-display text-5xl font-bold uppercase leading-[0.95] tracking-tight text-ink sm:text-6xl">
-          Stay in range.
+        <h1 className="mx-auto mt-3 max-w-xl font-display text-4xl font-extrabold leading-[1.05] text-white sm:text-5xl">
+          Build the connection that powers your creativity
         </h1>
-        <p className="mt-5 font-body text-base text-ink-soft">
+        <p className="mx-auto mt-4 max-w-md font-body text-base text-white/85">
           {campaignLabel
             ? "Let's build a connectivity setup around how you actually use your phone -- not a generic plan list."
-            : "A working demo store -- setups really get saved, nudges really get sent, activations really happen. No real payment is ever taken. No real network, either."}
+            : "Three quick questions. One plan that actually fits. No generic plan list to scroll through."}
         </p>
         <Link
           to="/builder"
-          className="mt-6 inline-block bg-blaze px-6 py-3 font-mono text-sm uppercase tracking-[0.1em] text-canvas transition-colors hover:bg-blaze-dark"
+          className="mt-7 inline-block rounded-full bg-white px-8 py-3 font-display text-sm font-bold text-blaze shadow-lg transition hover:opacity-90"
         >
-          Build my setup →
+          Build My Setup →
         </Link>
       </section>
 
       <section>
-        <div className="mb-4 flex items-baseline justify-between border-b border-hairline pb-2">
-          <h2 className="eyebrow">Catalog</h2>
+        <div className="mb-5 flex items-baseline justify-between">
+          <h2 className="font-display text-lg font-bold text-ink">Or browse the catalog</h2>
           {products && <span className="eyebrow">{products.length} items</span>}
         </div>
 
-        {error && <p className="font-body text-sm text-blaze">{error}</p>}
+        {error && <p className="font-body text-sm text-pink">{error}</p>}
 
         {loading && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="aspect-[3/4] animate-pulse border border-hairline bg-canvas" />
+              <div key={i} className="aspect-[3/4] animate-pulse rounded-2xl bg-lavender" />
             ))}
           </div>
         )}

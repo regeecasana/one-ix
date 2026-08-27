@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams, useSearchParams } from "react-router-dom";
 import { useCartStore } from "../store/cartStore";
 
-// Landing target for the CDP nudge email link:
-// {storefrontUrl}/setup/{cartId} -- see docs/email-templates.md.
+// Landing target for the voucher email link: {storefrontUrl}/setup/{cartId}
+// ?voucher={code} -- see docs/email-templates.md and apps/api/src/email/templates.ts.
 export function SetupRestorePage() {
   const { cartId } = useParams<{ cartId: string }>();
+  const [searchParams] = useSearchParams();
   const restoreCart = useCartStore((s) => s.restoreCart);
   const [status, setStatus] = useState<"loading" | "done" | "error">("loading");
 
@@ -20,7 +21,10 @@ export function SetupRestorePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartId]);
 
-  if (status === "done") return <Navigate to="/setup" replace />;
+  if (status === "done") {
+    const voucher = searchParams.get("voucher");
+    return <Navigate to={voucher ? `/setup?voucher=${encodeURIComponent(voucher)}` : "/setup"} replace />;
+  }
 
   if (status === "error") {
     return <p className="font-body text-ink">That setup isn't available anymore.</p>;
