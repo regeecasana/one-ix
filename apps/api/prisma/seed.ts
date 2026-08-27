@@ -4,44 +4,49 @@ const prisma = new PrismaClient();
 
 // imageUrl is intentionally blank -- the storefront renders a line-art
 // ProductIcon per product id instead of photography.
+//
+// priceCents holds whole Rupiah, not fractional cents -- IDR has no
+// practical subunit, and the brief's own mockups show "Rp 199.000" with no
+// decimals. Kept the field name to avoid an unnecessary schema rename;
+// see apps/storefront/src/lib/money.ts for the formatter.
 const products = [
   {
-    id: "plan-starter",
-    name: "Starter Plan",
+    id: "plan-gosurf799",
+    name: "GoSurf799",
     description: "10GB data, unlimited calls & text. Good for everyday browsing.",
-    priceCents: 1499,
+    priceCents: 79000,
     imageUrl: "",
     stock: 500,
   },
   {
-    id: "plan-work",
-    name: "Work & Call Plan",
+    id: "plan-gosurf-xtra",
+    name: "GoSurf Xtra",
     description: "30GB data, HD video calls, priority network during work hours.",
-    priceCents: 2499,
+    priceCents: 129000,
     imageUrl: "",
     stock: 500,
   },
   {
-    id: "plan-creator-pro",
-    name: "Creator Pro Plan",
-    description: "100GB data, priority upload speed for livestreaming, unlimited social media.",
-    priceCents: 3999,
+    id: "plan-creator",
+    name: "XL Mobile Creator Plan",
+    description: "120 GB high-speed data, priority upload lane for creators, unlimited streaming apps.",
+    priceCents: 199000,
     imageUrl: "",
     stock: 500,
   },
   {
     id: "plan-home-multi",
-    name: "Home Multi-Device Plan",
+    name: "XL Home Multi Plan",
     description: "150GB shared across up to 5 devices. Built for multi-brand households.",
-    priceCents: 4999,
+    priceCents: 249000,
     imageUrl: "",
     stock: 500,
   },
   {
-    id: "addon-5g-boost",
-    name: "5G Speed Boost",
-    description: "Unlock 5G priority access on any plan.",
-    priceCents: 999,
+    id: "addon-satu-fiber-boost",
+    name: "XL SATU Fiber Boost",
+    description: "Unlock 5G + fiber-grade priority access on any plan.",
+    priceCents: 49000,
     imageUrl: "",
     stock: 500,
   },
@@ -54,6 +59,8 @@ async function main() {
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.cartItem.deleteMany();
+  await prisma.voucher.deleteMany();
+  await prisma.interactionEvent.deleteMany();
   await prisma.supportTicket.deleteMany();
   await prisma.cart.deleteMany();
   await prisma.customer.deleteMany();

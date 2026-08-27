@@ -1,44 +1,59 @@
 import { HttpError } from "../errors";
 
-export type BuilderUsage = "streaming" | "work" | "gaming" | "everyday";
-export type BuilderDevices = "just-phone" | "phone-laptop" | "household";
+const USAGE_VALUES = ["streaming", "uploading", "gaming", "work", "entertainment", "family"] as const;
+const DEVICES_VALUES = ["light", "household", "creator-studio", "power-user"] as const;
+const PRIORITY_VALUES = ["speed", "reliability", "upload", "flexibility", "value"] as const;
 
-const USAGE_VALUES: BuilderUsage[] = ["streaming", "work", "gaming", "everyday"];
-const DEVICES_VALUES: BuilderDevices[] = ["just-phone", "phone-laptop", "household"];
+const USAGE_LABELS: Record<string, string> = {
+  streaming: "livestreaming",
+  uploading: "upload",
+  gaming: "gaming",
+  work: "remote work",
+  entertainment: "entertainment",
+  family: "family connectivity",
+};
+
+const PRIORITY_PHRASES: Record<string, string> = {
+  speed: "the speed you need",
+  reliability: "reliable connectivity",
+  upload: "priority upload performance",
+  flexibility: "the flexibility to switch anytime",
+  value: "the best value for what you need",
+};
+
+function isValidUsage(usage: unknown): usage is string[] {
+  return Array.isArray(usage) && usage.length > 0 && usage.every((u) => USAGE_VALUES.includes(u));
+}
 
 // A deterministic rules engine, not a model call -- see docs/architecture.md
-// on why this stays a real (if simple) decision table rather than a
-// simulated "AI" recommendation.
-export function recommendPlan(usage: string, devices: string): { productId: string; reason: string } {
-  if (!USAGE_VALUES.includes(usage as BuilderUsage)) throw new HttpError(400, "invalid_usage");
-  if (!DEVICES_VALUES.includes(devices as BuilderDevices)) throw new HttpError(400, "invalid_devices");
+// on why this stays a real (if simple) decision table.
+export function recommendPlan(usage: unknown, devices: string, priority: string): { productId: string; reason: string } {
+  if (!isValidUsage(usage)) throw new HttpError(400, "invalid_usage");
+  if (!DEVICES_VALUES.includes(devices as (typeof DEVICES_VALUES)[number])) throw new HttpError(400, "invalid_devices");
+  if (!PRIORITY_VALUES.includes(priority as (typeof PRIORITY_VALUES)[number])) throw new HttpError(400, "invalid_priority");
 
-  if (devices === "household") {
-    return {
-      productId: "plan-home-multi",
-      reason:
-        "You told us this setup covers your whole household, not just one device -- Home Multi-Device shares 150GB across up to 5 devices, built for exactly that.",
-    };
+  const hasCreatorSignal = usage.some((u) => u === "streaming" || u === "uploading" || u === "gaming");
+  const hasWorkSignal = usage.includes("work");
+  const isHousehold = devices === "household" || devices === "power-user";
+
+  let productId: string;
+  if (hasCreatorSignal) {
+    productId = "plan-creator";
+  } else if (isHousehold && !hasWorkSignal) {
+    productId = "plan-home-multi";
+  } else if (hasWorkSignal) {
+    productId = "plan-gosurf-xtra";
+  } else {
+    productId = "plan-gosurf799";
   }
 
-  if (usage === "streaming" || usage === "gaming") {
-    return {
-      productId: "plan-creator-pro",
-      reason:
-        "Since you picked content creation & livestreaming, Creator Pro gives you priority upload speed and 100GB so your streams never buffer.",
-    };
-  }
+  const labels = usage.map((u) => USAGE_LABELS[u]);
+  const usagePhrase =
+    labels.length <= 2 ? labels.join(" and ") : `${labels.slice(0, 2).join(", ")}, and more`;
+  const devicesPhrase = isHousehold ? ", multiple connected devices," : "";
+  const priorityPhrase = PRIORITY_PHRASES[priority] ?? "reliable connectivity";
 
-  if (usage === "work") {
-    return {
-      productId: "plan-work",
-      reason:
-        "You're mostly on work calls and video meetings -- Work & Call prioritizes HD video calls during work hours and gives you 30GB to cover it.",
-    };
-  }
+  const reason = `Based on your ${usagePhrase} activity${devicesPhrase} this setup gives you ${priorityPhrase} wherever you create.`;
 
-  return {
-    productId: "plan-starter",
-    reason: "For everyday browsing, Starter covers unlimited calls & text plus 10GB data without paying for more than you need.",
-  };
+  return { productId, reason };
 }

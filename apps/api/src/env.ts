@@ -14,6 +14,5 @@ export const env = {
     email: process.env.ZENDESK_EMAIL ?? "",
     apiToken: process.env.ZENDESK_API_TOKEN ?? "",
   },
-  abandonThresholdMs: num("ABANDON_THRESHOLD_MS", 60_000),
-  abandonSweepIntervalMs: num("ABANDON_SWEEP_INTERVAL_MS", 15_000),
+  voucherTtlMinutes: num("VOUCHER_TTL_MINUTES", 30),
 };

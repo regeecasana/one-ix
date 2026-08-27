@@ -1,7 +1,9 @@
 // Shapes shared between apps/storefront, apps/api, and apps/zendesk-app.
 // Source of truth is docs/data-model.md and docs/api-spec.md — keep in sync.
 
-export type CartStatus = "active" | "abandoned" | "converted";
+export type CartStatus = "active" | "converted";
+
+export type VoucherStatus = "active" | "redeemed" | "expired";
 
 export interface Product {
   id: string;
@@ -29,7 +31,6 @@ export interface Cart {
   utmCampaign: string | null;
   utmContent: string | null;
   recommendationReason: string | null;
-  remindedAt: string | null;
   lastActivityAt: string;
   createdAt: string;
   updatedAt: string;
@@ -41,8 +42,9 @@ export interface Order {
   customerId: string;
   status: "paid";
   subtotalCents: number;
+  discountCents: number;
   totalCents: number;
-  pointsEarned: number;
+  voucherId: string | null;
   createdAt: string;
 }
 
@@ -50,8 +52,29 @@ export interface Customer {
   id: string;
   email: string;
   name: string | null;
-  mobileNumber: string | null;
-  pointsBalance: number;
+  activeTicketId: string | null;
+  createdAt: string;
+}
+
+export interface Voucher {
+  id: string;
+  code: string;
+  customerId: string;
+  productId: string;
+  percentOff: number;
+  status: VoucherStatus;
+  expiresAt: string;
+  issuedBy: "agent";
+  resendCount: number;
+  zendeskTicketId: string | null;
+  createdAt: string;
+}
+
+export interface InteractionEvent {
+  id: string;
+  customerId: string;
+  type: string;
+  detail: string;
   createdAt: string;
 }
 
@@ -75,5 +98,6 @@ export interface CustomerProfile {
   customer: Customer;
   latestCart: (Cart & { products: Record<string, Product> }) | null;
   latestOrder: Order | null;
-  supportTickets: SupportTicket[];
+  activeVoucher: Voucher | null;
+  recentEvents: InteractionEvent[];
 }

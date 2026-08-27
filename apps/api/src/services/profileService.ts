@@ -1,16 +1,13 @@
 import { prisma } from "../db";
 import { HttpError } from "../errors";
-import {
-  serializeCart,
-  serializeCustomer,
-  serializeOrder,
-  serializeProduct,
-  serializeSupportTicket,
-} from "../serializers";
+import { serializeCart, serializeCustomer, serializeInteractionEvent, serializeOrder, serializeProduct, serializeVoucher } from "../serializers";
 import type { CustomerProfile } from "@oneix/shared";
 
-// The Unified Profile: what the sidebar app renders, and what gets folded
-// into a support ticket's body so an agent never has to ask who someone is.
+const RECENT_EVENTS_LIMIT = 20;
+
+// What the sidebar app renders, and what gets folded into a standalone
+// support ticket's body (see services/supportService.ts) so an agent
+// never has to ask who someone is.
 export async function buildCustomerProfile(customerId: string): Promise<CustomerProfile> {
   const customer = await prisma.customer.findUnique({ where: { id: customerId } });
   if (!customer) throw new HttpError(404, "customer_not_found");
@@ -36,25 +33,32 @@ export async function buildCustomerProfile(customerId: string): Promise<Customer
     orderBy: { createdAt: "desc" },
   });
 
-  const supportTicketRows = await prisma.supportTicket.findMany({
+  const activeVoucherRow = await prisma.voucher.findFirst({
+    where: { customerId, status: "active" },
+    orderBy: { createdAt: "desc" },
+  });
+  // Checked live against expiresAt, not just the status column -- same
+  // reasoning as every earlier version of this endpoint.
+  const activeVoucher =
+    activeVoucherRow && activeVoucherRow.expiresAt.getTime() > Date.now() ? serializeVoucher(activeVoucherRow) : null;
+
+  const recentEventRows = await prisma.interactionEvent.findMany({
     where: { customerId },
     orderBy: { createdAt: "desc" },
+    take: RECENT_EVENTS_LIMIT,
   });
 
   return {
     customer: serializeCustomer(customer),
     latestCart,
     latestOrder: latestOrderRow ? serializeOrder(latestOrderRow) : null,
-    supportTickets: supportTicketRows.map(serializeSupportTicket),
+    activeVoucher,
+    recentEvents: recentEventRows.map(serializeInteractionEvent),
   };
 }
 
 export function profileToTicketContext(profile: CustomerProfile): string {
-  const lines = [
-    `Customer: ${profile.customer.email}${profile.customer.name ? ` (${profile.customer.name})` : ""}`,
-    `Mobile: ${profile.customer.mobileNumber ?? "not on file"}`,
-    `XL Points balance: ${profile.customer.pointsBalance.toLocaleString()}`,
-  ];
+  const lines = [`Customer: ${profile.customer.email}${profile.customer.name ? ` (${profile.customer.name})` : ""}`];
 
   if (profile.latestCart) {
     const source = profile.latestCart.utmCampaign
@@ -71,7 +75,10 @@ export function profileToTicketContext(profile: CustomerProfile): string {
   }
 
   if (profile.latestOrder) {
-    lines.push(``, `Latest activation: order ${profile.latestOrder.id}, $${(profile.latestOrder.totalCents / 100).toFixed(2)}`);
+    lines.push(
+      ``,
+      `Latest activation: order ${profile.latestOrder.id}, $${(profile.latestOrder.totalCents / 100).toFixed(2)}`
+    );
   }
 
   return lines.join("\n");

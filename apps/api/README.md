@@ -9,11 +9,12 @@ Backend for the oneix demo. Owns the data model and every side effect
 - [../../docs/demo-setup.md](../../docs/demo-setup.md)
 
 Status: implemented -- connectivity plans, setups (carts), the Connectivity
-Builder recommendation endpoint, mobile/OTP identity resolution, the CDP
-nudge sweep, activation (mock payment), support tickets, XL Points, Zendesk
-ticket/comment calls (no-op with a logged warning if Zendesk credentials
-aren't set), and email via Ethereal are all in place. `apps/zendesk-app` is
-still a scaffold -- see [../../docs/roadmap.md](../../docs/roadmap.md).
+Builder recommendation endpoint, email identification (creates a
+per-customer Zendesk ticket), live interaction logging (mirrored to that
+ticket as comments), activation (mock payment), vouchers (issue/resend),
+support tickets, and email via Ethereal are all in place. Zendesk calls
+no-op with a logged warning if credentials aren't set. `apps/zendesk-app`
+is still a scaffold -- see [../../docs/roadmap.md](../../docs/roadmap.md).
 
 ```
 cp .env.example .env

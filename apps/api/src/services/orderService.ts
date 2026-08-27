@@ -4,24 +4,34 @@ import { HttpError } from "../errors";
 import { computeSubtotalCents } from "./cartService";
 import { etherealEmailProvider } from "../email/ethereal";
 import { activationConfirmationEmail } from "../email/templates";
+import { logInteraction } from "./interactionService";
 
-// Awarded only if this activation follows a CDP nudge (Cart.remindedAt is
-// set) -- the base 5,000 for OTP consent was already granted at "save my
-// setup" time, in identityService.ts. See docs/data-model.md invariants.
-const NUDGE_COMPLETION_BONUS_POINTS = 5000;
-
-export async function completeCheckout(cartId: string): Promise<PrismaOrder> {
+export async function completeCheckout(cartId: string, voucherCode?: string): Promise<PrismaOrder> {
   const cart = await prisma.cart.findUnique({
     where: { id: cartId },
     include: { items: { include: { product: true } }, customer: true },
   });
   if (!cart) throw new HttpError(404, "cart_not_found");
   if (cart.status === "converted") throw new HttpError(409, "cart_already_converted");
-  if (!cart.customerId || !cart.customer) throw new HttpError(400, "setup_not_saved");
+  if (!cart.customerId || !cart.customer) throw new HttpError(400, "setup_not_identified");
   if (cart.items.length === 0) throw new HttpError(400, "cart_is_empty");
 
   const subtotalCents = computeSubtotalCents(cart.items);
-  const pointsEarned = cart.remindedAt ? NUDGE_COMPLETION_BONUS_POINTS : 0;
+
+  let voucher = null;
+  if (voucherCode) {
+    voucher = await prisma.voucher.findUnique({ where: { code: voucherCode } });
+    const isValid =
+      voucher &&
+      voucher.customerId === cart.customerId &&
+      voucher.status === "active" &&
+      voucher.expiresAt.getTime() > Date.now() &&
+      cart.items.some((item) => item.productId === voucher!.productId);
+    if (!isValid) throw new HttpError(400, "invalid_voucher");
+  }
+
+  const discountCents = voucher ? Math.round((subtotalCents * voucher.percentOff) / 100) : 0;
+  const totalCents = subtotalCents - discountCents;
 
   const order = await prisma.$transaction(async (tx) => {
     const created = await tx.order.create({
@@ -30,8 +40,9 @@ export async function completeCheckout(cartId: string): Promise<PrismaOrder> {
         customerId: cart.customerId!,
         status: "paid",
         subtotalCents,
-        totalCents: subtotalCents,
-        pointsEarned,
+        discountCents,
+        totalCents,
+        voucherId: voucher?.id,
         items: {
           create: cart.items.map((item) => ({
             productId: item.productId,
@@ -51,15 +62,18 @@ export async function completeCheckout(cartId: string): Promise<PrismaOrder> {
 
     await tx.cart.update({ where: { id: cart.id }, data: { status: "converted" } });
 
-    if (pointsEarned > 0) {
-      await tx.customer.update({
-        where: { id: cart.customerId! },
-        data: { pointsBalance: { increment: pointsEarned } },
-      });
+    if (voucher) {
+      await tx.voucher.update({ where: { id: voucher.id }, data: { status: "redeemed" } });
     }
 
     return created;
   });
+
+  const itemsSummary = cart.items.map((item) => item.product.name).join(", ");
+  const detail = voucher
+    ? `Activated ${itemsSummary} with voucher ${voucher.code} applied.`
+    : `Activated ${itemsSummary}.`;
+  await logInteraction(cart.customerId!, "activated", detail);
 
   const { subject, text } = activationConfirmationEmail({
     orderId: order.id,
@@ -69,8 +83,8 @@ export async function completeCheckout(cartId: string): Promise<PrismaOrder> {
       unitPriceCents: item.unitPriceCents,
     })),
     subtotalCents,
-    totalCents: subtotalCents,
-    pointsEarned,
+    discountCents,
+    totalCents,
   });
 
   try {

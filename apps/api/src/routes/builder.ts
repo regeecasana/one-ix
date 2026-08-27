@@ -7,9 +7,9 @@ const router = Router();
 router.post(
   "/recommend",
   asyncHandler(async (req, res) => {
-    const usage = String(req.body?.usage ?? "");
     const devices = String(req.body?.devices ?? "");
-    const recommendation = recommendPlan(usage, devices);
+    const priority = String(req.body?.priority ?? "");
+    const recommendation = recommendPlan(req.body?.usage, devices, priority);
     res.json(recommendation);
   })
 );

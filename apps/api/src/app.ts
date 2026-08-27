@@ -5,6 +5,9 @@ import { HttpError } from "./errors";
 import productsRouter from "./routes/products";
 import builderRouter from "./routes/builder";
 import cartsRouter from "./routes/carts";
+import identifyRouter from "./routes/identify";
+import interactionsRouter from "./routes/interactions";
+import vouchersRouter from "./routes/vouchers";
 import supportRouter from "./routes/support";
 import internalRouter from "./routes/internal";
 
@@ -19,6 +22,9 @@ export function createApp() {
   app.use("/api/products", productsRouter);
   app.use("/api/builder", builderRouter);
   app.use("/api/carts", cartsRouter);
+  app.use("/api/identify", identifyRouter);
+  app.use("/api/customers", interactionsRouter);
+  app.use("/api/vouchers", vouchersRouter);
   app.use("/api/support", supportRouter);
   app.use("/api/internal", internalRouter);
 

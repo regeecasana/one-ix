@@ -76,3 +76,24 @@ export async function addTicketComment(ticketId: string, body: string): Promise<
     console.error("[zendesk] addComment error", err);
   }
 }
+
+export async function closeTicket(ticketId: string): Promise<void> {
+  if (!isConfigured()) {
+    console.warn(`[zendesk] not configured -- skipping close on ticket ${ticketId}`);
+    return;
+  }
+
+  try {
+    const res = await fetch(`${baseUrl()}/tickets/${ticketId}.json`, {
+      method: "PUT",
+      headers: { Authorization: authHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ ticket: { status: "closed" } }),
+    });
+
+    if (!res.ok) {
+      console.error(`[zendesk] closeTicket failed: ${res.status} ${await res.text()}`);
+    }
+  } catch (err) {
+    console.error("[zendesk] closeTicket error", err);
+  }
+}

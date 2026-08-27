@@ -3,26 +3,37 @@ import { prisma } from "../db";
 import { HttpError } from "../errors";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { internalAuth } from "../middleware/internalAuth";
-import { serializeCustomer } from "../serializers";
+import { serializeVoucher } from "../serializers";
 import { buildCustomerProfile } from "../services/profileService";
-import { grantGoodwillPoints } from "../services/pointsService";
-import { runCdpSweep } from "../jobs/cdpSweep";
+import { issueVoucher, resendVoucher } from "../services/voucherService";
+import { closeTicket } from "../zendesk/client";
 
 const router = Router();
 
 // Everything below requires X-Internal-Token -- called only by the Zendesk
-// sidebar app (and, for force-sweep, the demo operator). See docs/api-spec.md.
+// sidebar app. See docs/api-spec.md.
 router.use(internalAuth);
 
 router.get(
   "/tickets/:ticketId/customer",
   asyncHandler(async (req, res) => {
-    const ticket = await prisma.supportTicket.findFirst({
-      where: { zendeskTicketId: req.params.ticketId },
+    const { ticketId } = req.params;
+
+    const customer = await prisma.customer.findFirst({ where: { activeTicketId: ticketId } });
+    if (customer) {
+      res.json({ customerId: customer.id });
+      return;
+    }
+
+    // Fall back to the standalone support-ticket flow, which isn't
+    // reconciled with the per-customer activity ticket -- see
+    // docs/api-spec.md.
+    const supportTicket = await prisma.supportTicket.findFirst({
+      where: { zendeskTicketId: ticketId },
       orderBy: { createdAt: "desc" },
     });
-    if (!ticket) throw new HttpError(404, "customer_not_found_for_ticket");
-    res.json({ customerId: ticket.customerId });
+    if (!supportTicket) throw new HttpError(404, "customer_not_found_for_ticket");
+    res.json({ customerId: supportTicket.customerId });
   })
 );
 
@@ -35,28 +46,42 @@ router.get(
 );
 
 router.post(
-  "/customers/:customerId/points",
+  "/customers/:customerId/vouchers",
   asyncHandler(async (req, res) => {
-    const amount = Number(req.body?.amount);
-    const reason = String(req.body?.reason ?? "").trim();
-    if (!reason) throw new HttpError(400, "reason_required");
+    const productId = String(req.body?.productId ?? "");
+    if (!productId) throw new HttpError(400, "product_id_required");
 
-    const customer = await grantGoodwillPoints({
+    const voucher = await issueVoucher({
       customerId: req.params.customerId,
-      amount,
-      reason,
-      zendeskTicketId: req.body?.zendeskTicketId ? String(req.body.zendeskTicketId) : null,
+      productId,
+      percentOff: req.body?.percentOff ? Number(req.body.percentOff) : undefined,
+      ttlMinutes: req.body?.ttlMinutes ? Number(req.body.ttlMinutes) : undefined,
     });
 
-    res.json(serializeCustomer(customer));
+    res.status(201).json(serializeVoucher(voucher));
   })
 );
 
 router.post(
-  "/demo/force-sweep",
-  asyncHandler(async (_req, res) => {
-    const result = await runCdpSweep();
-    res.json(result);
+  "/vouchers/:voucherId/resend",
+  asyncHandler(async (req, res) => {
+    const voucher = await resendVoucher(
+      req.params.voucherId,
+      req.body?.ttlMinutes ? Number(req.body.ttlMinutes) : undefined
+    );
+    res.json(serializeVoucher(voucher));
+  })
+);
+
+router.post(
+  "/tickets/:ticketId/close",
+  asyncHandler(async (req, res) => {
+    await closeTicket(req.params.ticketId);
+    await prisma.customer.updateMany({
+      where: { activeTicketId: req.params.ticketId },
+      data: { activeTicketId: null },
+    });
+    res.json({ closed: true });
   })
 );
 

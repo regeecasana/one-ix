@@ -3,9 +3,11 @@ import { prisma } from "../db";
 import { buildCustomerProfile, profileToTicketContext } from "./profileService";
 import { createTicket } from "../zendesk/client";
 
-// Ravta's proactive contact (Act 2) -- independent of the CDP nudge (Act 1).
-// Identity resolution here is find-or-create by email only; someone can
-// contact support without ever having gone through the builder/OTP flow.
+// A standalone contact-support flow, separate from the per-customer
+// activity ticket the email popup creates -- not yet reconciled with it
+// (see docs/api-spec.md). Identity resolution here is find-or-create by
+// email only; someone can contact support without ever going through the
+// builder.
 export async function submitSupportTicket(params: {
   email: string;
   subject: string;

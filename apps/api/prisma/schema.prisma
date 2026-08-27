@@ -1,4 +1,4 @@
-// Matches docs/data-model.md -- the XLSmart/Ravta telco story.
+// Matches docs/data-model.md -- interaction-logging + voucher story.
 
 generator client {
   provider = "prisma-client-js"
@@ -10,16 +10,17 @@ datasource db {
 }
 
 model Customer {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  name          String?
-  mobileNumber  String?  @unique
-  pointsBalance Int      @default(0)
-  createdAt     DateTime @default(now())
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String?
+  activeTicketId String? // the Zendesk ticket currently receiving interaction comments
+  createdAt      DateTime @default(now())
 
-  carts          Cart[]
-  orders         Order[]
-  supportTickets SupportTicket[]
+  carts             Cart[]
+  orders            Order[]
+  vouchers          Voucher[]
+  interactionEvents InteractionEvent[]
+  supportTickets    SupportTicket[]
 }
 
 model Product {
@@ -32,22 +33,20 @@ model Product {
 
   cartItems  CartItem[]
   orderItems OrderItem[]
+  vouchers   Voucher[]
 }
 
 model Cart {
-  id              String    @id @default(cuid())
-  customerId      String?
-  status          String    @default("active") // active | abandoned | converted
-  lastActivityAt  DateTime  @default(now())
-  remindedAt      DateTime? // set once the CDP nudge email is sent
-  utmSource       String?
-  utmCampaign     String?
-  utmContent      String?
+  id                   String   @id @default(cuid())
+  customerId           String?
+  status               String   @default("active") // active | converted
+  lastActivityAt       DateTime @default(now())
+  utmSource            String?
+  utmCampaign          String?
+  utmContent           String?
   recommendationReason String?
-  pendingOtpMobile String?  // set by POST .../otp/request, cleared on verify
-  pendingOtpCode   String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   customer Customer?  @relation(fields: [customerId], references: [id])
   items    CartItem[]
@@ -71,12 +70,14 @@ model Order {
   customerId    String
   status        String   @default("paid")
   subtotalCents Int
+  discountCents Int      @default(0)
   totalCents    Int
-  pointsEarned  Int      @default(0)
+  voucherId     String?
   createdAt     DateTime @default(now())
 
   cart     Cart        @relation(fields: [cartId], references: [id])
   customer Customer    @relation(fields: [customerId], references: [id])
+  voucher  Voucher?    @relation(fields: [voucherId], references: [id])
   items    OrderItem[]
 }
 
@@ -89,6 +90,34 @@ model OrderItem {
 
   order   Order   @relation(fields: [orderId], references: [id])
   product Product @relation(fields: [productId], references: [id])
+}
+
+model Voucher {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  customerId      String
+  productId       String
+  percentOff      Int
+  status          String    @default("active") // active | redeemed | expired
+  expiresAt       DateTime
+  issuedBy        String // agent
+  resendCount     Int       @default(0)
+  zendeskTicketId String?
+  createdAt       DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  product  Product  @relation(fields: [productId], references: [id])
+  orders   Order[]
+}
+
+model InteractionEvent {
+  id         String   @id @default(cuid())
+  customerId String
+  type       String // viewed_product | added_to_setup | removed_from_setup | answered_builder_step | tab_closed | returned_to_setup | activated | ...
+  detail     String
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
 }
 
 model SupportTicket {

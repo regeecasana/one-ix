@@ -1,24 +1,32 @@
 import { env } from "../env";
 
+// priceCents actually stores whole Rupiah (no fractional currency in this
+// catalog) -- see apps/storefront/src/lib/money.ts for the matching
+// storefront-side formatter.
 function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
+  return `Rp ${cents.toLocaleString("id-ID")}`;
 }
 
-export function setupNudgeEmail(params: {
-  customerName: string | null;
-  cartId: string;
+export function voucherEmail(params: {
+  productName: string;
+  code: string;
+  percentOff: number;
+  expiresAt: Date;
+  cartId?: string;
 }): { subject: string; text: string } {
-  const link = `${env.storefrontUrl}/setup/${params.cartId}`;
-  const greetingName = params.customerName ?? "there";
+  const minutesLeft = Math.max(1, Math.round((params.expiresAt.getTime() - Date.now()) / 60_000));
+  const link = params.cartId
+    ? `${env.storefrontUrl}/setup/${params.cartId}?voucher=${params.code}`
+    : `${env.storefrontUrl}/setup`;
 
-  const subject = "Your Creator Setup is still saved";
+  const subject = `Here's ${params.percentOff}% off ${params.productName}`;
   const text = [
-    `Hi ${greetingName} 👋`,
+    `You were checking out ${params.productName} -- here's ${params.percentOff}% off if you want to finish setting it up.`,
     ``,
-    `Your Creator Setup is still saved.`,
-    `Complete your activation today and receive another 5,000 XL points.`,
+    `Voucher code: ${params.code}`,
+    `This expires in ${minutesLeft} minutes (at ${params.expiresAt.toISOString()}).`,
     ``,
-    `Continue my setup: ${link}`,
+    `Use it here: ${link}`,
   ].join("\n");
 
   return { subject, text };
@@ -28,10 +36,10 @@ export function activationConfirmationEmail(params: {
   orderId: string;
   items: { name: string; quantity: number; unitPriceCents: number }[];
   subtotalCents: number;
+  discountCents: number;
   totalCents: number;
-  pointsEarned: number;
 }): { subject: string; text: string } {
-  const subject = `Your setup is active — ${params.orderId}`;
+  const subject = `Your setup is active -- ${params.orderId}`;
 
   const lines = params.items.map(
     (item) => `  ${item.quantity} x ${item.name} — ${formatCents(item.unitPriceCents * item.quantity)}`
@@ -43,26 +51,10 @@ export function activationConfirmationEmail(params: {
     ...lines,
     ``,
     `Subtotal: ${formatCents(params.subtotalCents)}`,
+    ...(params.discountCents > 0 ? [`Discount: -${formatCents(params.discountCents)}`] : []),
     `Total: ${formatCents(params.totalCents)}`,
     ``,
-    `You earned ${params.pointsEarned.toLocaleString()} XL points on this activation.`,
-    ``,
     `No real payment was processed -- this is a demo.`,
-  ].join("\n");
-
-  return { subject, text };
-}
-
-export function goodwillPointsEmail(params: {
-  amount: number;
-  reason: string;
-  newBalance: number;
-}): { subject: string; text: string } {
-  const subject = `You've received ${params.amount.toLocaleString()} XL points`;
-  const text = [
-    `You've been granted ${params.amount.toLocaleString()} XL points: ${params.reason}`,
-    ``,
-    `Your new balance: ${params.newBalance.toLocaleString()} XL points.`,
   ].join("\n");
 
   return { subject, text };

@@ -2,11 +2,22 @@ import type {
   Cart as PrismaCart,
   CartItem as PrismaCartItem,
   Customer as PrismaCustomer,
+  InteractionEvent as PrismaInteractionEvent,
   Order as PrismaOrder,
   Product as PrismaProduct,
   SupportTicket as PrismaSupportTicket,
+  Voucher as PrismaVoucher,
 } from "@prisma/client";
-import type { Cart, CartItem, Customer, Order, Product, SupportTicket } from "@oneix/shared";
+import type {
+  Cart,
+  CartItem,
+  Customer,
+  InteractionEvent,
+  Order,
+  Product,
+  SupportTicket,
+  Voucher,
+} from "@oneix/shared";
 
 export function serializeProduct(p: PrismaProduct): Product {
   return {
@@ -39,7 +50,6 @@ export function serializeCart(c: PrismaCart & { items: PrismaCartItem[] }): Cart
     utmCampaign: c.utmCampaign,
     utmContent: c.utmContent,
     recommendationReason: c.recommendationReason,
-    remindedAt: c.remindedAt ? c.remindedAt.toISOString() : null,
     lastActivityAt: c.lastActivityAt.toISOString(),
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
@@ -53,8 +63,9 @@ export function serializeOrder(o: PrismaOrder): Order {
     customerId: o.customerId,
     status: "paid",
     subtotalCents: o.subtotalCents,
+    discountCents: o.discountCents,
     totalCents: o.totalCents,
-    pointsEarned: o.pointsEarned,
+    voucherId: o.voucherId,
     createdAt: o.createdAt.toISOString(),
   };
 }
@@ -64,9 +75,34 @@ export function serializeCustomer(c: PrismaCustomer): Customer {
     id: c.id,
     email: c.email,
     name: c.name,
-    mobileNumber: c.mobileNumber,
-    pointsBalance: c.pointsBalance,
+    activeTicketId: c.activeTicketId,
     createdAt: c.createdAt.toISOString(),
+  };
+}
+
+export function serializeVoucher(v: PrismaVoucher): Voucher {
+  return {
+    id: v.id,
+    code: v.code,
+    customerId: v.customerId,
+    productId: v.productId,
+    percentOff: v.percentOff,
+    status: v.status as Voucher["status"],
+    expiresAt: v.expiresAt.toISOString(),
+    issuedBy: "agent",
+    resendCount: v.resendCount,
+    zendeskTicketId: v.zendeskTicketId,
+    createdAt: v.createdAt.toISOString(),
+  };
+}
+
+export function serializeInteractionEvent(e: PrismaInteractionEvent): InteractionEvent {
+  return {
+    id: e.id,
+    customerId: e.customerId,
+    type: e.type,
+    detail: e.detail,
+    createdAt: e.createdAt.toISOString(),
   };
 }
 

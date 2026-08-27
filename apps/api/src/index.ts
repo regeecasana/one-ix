@@ -6,7 +6,6 @@ import "dotenv/config";
 
 import { createApp } from "./app";
 import { env } from "./env";
-import { startBackgroundJobs } from "./jobs/scheduler";
 
 const app = createApp();
 
@@ -14,5 +13,4 @@ const app = createApp();
 // infra/docker-compose.yml to reach the process inside the container.
 app.listen(env.port, "0.0.0.0", () => {
   console.log(`oneix api listening on :${env.port}`);
-  startBackgroundJobs();
 });
