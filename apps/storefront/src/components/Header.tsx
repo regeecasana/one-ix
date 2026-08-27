@@ -1,31 +1,28 @@
 import { Link } from "react-router-dom";
 import { cartItemCount, useCartStore } from "../store/cartStore";
-import { SignalBars } from "./SignalBars";
+import { Mark } from "./Mark";
 
 export function Header() {
   const cart = useCartStore((s) => s.cart);
   const count = cartItemCount(cart);
 
   return (
-    <header className="border-b border-hairline bg-paper">
+    <header className="border-b border-hairline bg-paper/90 backdrop-blur">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-4 sm:px-6">
         <Link to="/" className="flex items-center gap-2.5">
-          <SignalBars />
-          <span className="font-display text-2xl font-bold uppercase tracking-[0.08em] text-ink">XLSmart</span>
+          <Mark />
+          <span className="font-display text-xl font-extrabold tracking-tight text-ink">XLSmart</span>
         </Link>
         <nav className="flex items-center gap-3">
-          <Link
-            to="/support"
-            className="font-mono text-xs uppercase tracking-[0.1em] text-ink-soft transition-colors hover:text-ink"
-          >
+          <Link to="/support" className="font-display text-sm font-semibold text-ink-soft transition-colors hover:text-blaze">
             Support
           </Link>
           <Link
             to="/setup"
-            className="flex items-center gap-2 border border-ink px-3 py-1.5 font-mono text-xs uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-canvas"
+            className="flex items-center gap-2 rounded-full border border-hairline bg-white px-4 py-2 font-display text-sm font-semibold text-ink transition-colors hover:border-blaze hover:text-blaze"
           >
             My Setup
-            <span className="inline-flex min-w-[1.5rem] justify-center rounded-sm bg-blaze px-1 text-canvas">
+            <span className="inline-flex min-w-[1.4rem] justify-center rounded-full bg-gradient-primary px-1.5 py-0.5 text-xs font-bold text-white">
               {count}
             </span>
           </Link>

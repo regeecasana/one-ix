@@ -53,11 +53,11 @@ function Bolt() {
 }
 
 const ICONS: Record<string, () => JSX.Element> = {
-  "plan-starter": Phone,
-  "plan-work": Laptop,
-  "plan-creator-pro": Camera,
+  "plan-gosurf799": Phone,
+  "plan-gosurf-xtra": Laptop,
+  "plan-creator": Camera,
   "plan-home-multi": House,
-  "addon-5g-boost": Bolt,
+  "addon-satu-fiber-boost": Bolt,
 };
 
 export function ProductIcon({ productId, className = "" }: { productId: string; className?: string }) {

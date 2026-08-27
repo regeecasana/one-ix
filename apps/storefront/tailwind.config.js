@@ -4,25 +4,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        // "Relay" -- a clear-sky, full-signal palette. Same token names as
-        // before so component classNames didn't need touching, just the
-        // brand underneath them.
-        paper: "#EAF1F3",
+        // "XLSmart" -- purple-to-pink gradient system, matching the
+        // brief's own mockups. Same token *names* as the previous two
+        // design passes so most component classNames didn't need
+        // touching, just the values underneath them.
+        paper: "#FFFFFF",
         canvas: "#FFFFFF",
-        ink: "#122029",
-        "ink-soft": "#57707C",
-        blaze: "#0EA5A0",
-        "blaze-dark": "#0B8983",
-        moss: "#2F9E6E",
-        hairline: "#D3DEE2",
+        ink: "#150F2E",
+        "ink-soft": "#6B7280",
+        blaze: "#7C3AED", // gradient start (violet)
+        "blaze-dark": "#6D28D9",
+        pink: "#EC4899", // gradient end
+        moss: "#16A34A", // savings/success green, unrelated to brand gradient
+        lavender: "#F5F0FC",
+        hairline: "#E7E3F2",
       },
       fontFamily: {
-        display: ['"Space Mono"', "monospace"],
-        body: ['"Manrope"', "sans-serif"],
-        mono: ['"Space Mono"', "monospace"],
+        display: ['"Plus Jakarta Sans"', "sans-serif"],
+        body: ['"Plus Jakarta Sans"', "sans-serif"],
+        mono: ['"Plus Jakarta Sans"', "sans-serif"],
       },
-      borderRadius: {
-        sm: "2px",
+      backgroundImage: {
+        "gradient-primary": "linear-gradient(90deg, #7C3AED, #EC4899)",
       },
     },
   },

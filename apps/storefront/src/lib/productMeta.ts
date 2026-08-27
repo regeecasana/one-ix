@@ -1,11 +1,11 @@
-// Category tags shown on product cards -- real classification (how a
-// telco catalog is actually browsed), not a decorative sequence number.
+// Category tags shown on plan cards -- real classification (how the XL
+// catalog is actually browsed), not a decorative sequence number.
 export const PRODUCT_CATEGORY: Record<string, string> = {
-  "plan-starter": "PLAN",
-  "plan-work": "PLAN",
-  "plan-creator-pro": "PLAN",
+  "plan-gosurf799": "PLAN",
+  "plan-gosurf-xtra": "PLAN",
+  "plan-creator": "PLAN",
   "plan-home-multi": "PLAN",
-  "addon-5g-boost": "ADD-ON",
+  "addon-satu-fiber-boost": "ADD-ON",
 };
 
 export function productCategory(productId: string): string {

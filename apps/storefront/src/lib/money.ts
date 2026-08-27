@@ -1,3 +1,5 @@
 export function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
+  // Rupiah, whole units only -- priceCents actually stores whole Rupiah
+  // (no fractional currency in this catalog), formatted "Rp 199.000".
+  return `Rp ${cents.toLocaleString("id-ID")}`;
 }
