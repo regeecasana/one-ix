@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Cart, CartItem, Order } from "@oneix/shared";
 import * as api from "../lib/api";
-import type { Attribution } from "../lib/api";
+import type { Attribution, BufferedEvent } from "../lib/api";
 
 export interface LastOrder {
   order: Order;
@@ -10,15 +10,19 @@ export interface LastOrder {
 }
 
 interface CartState {
-  // Persisted -- survives a refresh, and is how the "Continue My Setup"
-  // email link hands control back to a returning visitor.
+  // Persisted -- survives a refresh.
   cartId: string | null;
   pendingAttribution: Attribution | null;
   lastOrder: LastOrder | null;
+  customerId: string | null;
+  customerEmail: string | null;
+  // Every interaction logged before the 30s email popup resolves an
+  // identity -- flushed atomically into the customer's ticket on identify().
+  pendingEvents: BufferedEvent[];
+  emailPromptDismissed: boolean;
 
   // Not persisted -- always re-fetched, so a stale local copy never masks
-  // server-side changes (e.g. the CDP sweep nudging this cart while a tab
-  // sits open).
+  // server-side changes.
   cart: Cart | null;
   loading: boolean;
 
@@ -28,9 +32,10 @@ interface CartState {
   removeItem: (itemId: string) => Promise<void>;
   setRecommendationReason: (reason: string) => Promise<void>;
   restoreCart: (cartId: string) => Promise<void>;
-  requestOtp: (mobileNumber: string) => Promise<void>;
-  verifyOtp: (params: { email: string; mobileNumber: string; otp: string; name?: string }) => Promise<void>;
-  completeActivation: () => Promise<Order>;
+  logEvent: (type: string, detail: string) => void;
+  identify: (email: string, name?: string) => Promise<void>;
+  dismissEmailPrompt: () => void;
+  completeActivation: (voucherCode?: string) => Promise<Order>;
   clearLastOrder: () => void;
 }
 
@@ -40,6 +45,10 @@ export const useCartStore = create<CartState>()(
       cartId: null,
       pendingAttribution: null,
       lastOrder: null,
+      customerId: null,
+      customerEmail: null,
+      pendingEvents: [],
+      emailPromptDismissed: false,
       cart: null,
       loading: false,
 
@@ -72,6 +81,15 @@ export const useCartStore = create<CartState>()(
           const created = await api.createCart(get().pendingAttribution ?? undefined);
           cartId = created.id;
           set({ cartId, cart: created, pendingAttribution: null });
+
+          // The 30s popup often resolves an identity before any cart
+          // exists yet -- if so, this brand-new cart was never linked to
+          // that customer. Link it retroactively (idempotent: the ticket
+          // already exists, this just attaches the cart).
+          const { customerId, customerEmail } = get();
+          if (customerId && customerEmail) {
+            await api.identifyCustomer({ email: customerEmail, cartId });
+          }
         }
         const cart = await api.addCartItem(cartId, productId, quantity);
         set({ cart });
@@ -96,23 +114,35 @@ export const useCartStore = create<CartState>()(
         set({ cartId, cart });
       },
 
-      requestOtp: async (mobileNumber) => {
-        const { cartId } = get();
-        if (!cartId) throw new Error("no_cart");
-        await api.requestOtp(cartId, mobileNumber);
+      // Fire-and-forget: an interaction event should never block or break
+      // the UI it's describing. Before an identity exists, buffer locally
+      // (persisted) and flush on identify().
+      logEvent: (type, detail) => {
+        const { customerId } = get();
+        if (customerId) {
+          api.logInteraction(customerId, type, detail).catch(() => {});
+        } else {
+          set((s) => ({ pendingEvents: [...s.pendingEvents, { type, detail }] }));
+        }
       },
 
-      verifyOtp: async (params) => {
-        const { cartId } = get();
-        if (!cartId) throw new Error("no_cart");
-        const cart = await api.verifyOtp(cartId, params);
-        set({ cart });
+      identify: async (email, name) => {
+        const { cartId, pendingEvents } = get();
+        const { customerId } = await api.identifyCustomer({
+          email,
+          name,
+          cartId: cartId ?? undefined,
+          bufferedEvents: pendingEvents,
+        });
+        set({ customerId, customerEmail: email, pendingEvents: [], emailPromptDismissed: true });
       },
 
-      completeActivation: async () => {
+      dismissEmailPrompt: () => set({ emailPromptDismissed: true }),
+
+      completeActivation: async (voucherCode) => {
         const { cartId, cart } = get();
         if (!cartId || !cart) throw new Error("no_cart");
-        const order = await api.completeActivation(cartId);
+        const order = await api.completeActivation(cartId, voucherCode);
         set({
           lastOrder: { order, items: cart.items },
           cart: null,
@@ -129,6 +159,10 @@ export const useCartStore = create<CartState>()(
         cartId: state.cartId,
         pendingAttribution: state.pendingAttribution,
         lastOrder: state.lastOrder,
+        customerId: state.customerId,
+        customerEmail: state.customerEmail,
+        pendingEvents: state.pendingEvents,
+        emailPromptDismissed: state.emailPromptDismissed,
       }),
     }
   )

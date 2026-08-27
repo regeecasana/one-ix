@@ -1,6 +1,6 @@
-import type { BuilderRecommendation, Cart, Order, Product, SupportTicket } from "@oneix/shared";
+import type { BuilderRecommendation, Cart, InteractionEvent, Order, Product, SupportTicket, Voucher } from "@oneix/shared";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
+export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
 export class ApiError extends Error {
   status: number;
@@ -31,10 +31,10 @@ export function getProduct(id: string): Promise<Product> {
   return request<Product>(`/api/products/${id}`);
 }
 
-export function recommendPlan(usage: string, devices: string): Promise<BuilderRecommendation> {
+export function recommendPlan(usage: string[], devices: string, priority: string): Promise<BuilderRecommendation> {
   return request<BuilderRecommendation>("/api/builder/recommend", {
     method: "POST",
-    body: JSON.stringify({ usage, devices }),
+    body: JSON.stringify({ usage, devices, priority }),
   });
 }
 
@@ -67,25 +67,41 @@ export function removeCartItem(cartId: string, itemId: string): Promise<Cart> {
   return request<Cart>(`/api/carts/${cartId}/items/${itemId}`, { method: "DELETE" });
 }
 
-export function requestOtp(cartId: string, mobileNumber: string): Promise<{ sent: boolean }> {
-  return request(`/api/carts/${cartId}/otp/request`, {
+export function completeActivation(cartId: string, voucherCode?: string): Promise<Order> {
+  return request<Order>(`/api/carts/${cartId}/checkout/complete`, {
     method: "POST",
-    body: JSON.stringify({ mobileNumber }),
+    body: JSON.stringify(voucherCode ? { voucherCode } : {}),
   });
 }
 
-export function verifyOtp(
-  cartId: string,
-  params: { email: string; mobileNumber: string; otp: string; name?: string }
-): Promise<Cart> {
-  return request<Cart>(`/api/carts/${cartId}/otp/verify`, {
+export interface BufferedEvent {
+  type: string;
+  detail: string;
+}
+
+export function identifyCustomer(params: {
+  email: string;
+  name?: string;
+  cartId?: string;
+  bufferedEvents?: BufferedEvent[];
+}): Promise<{ customerId: string }> {
+  return request("/api/identify", { method: "POST", body: JSON.stringify(params) });
+}
+
+export function logInteraction(customerId: string, type: string, detail: string): Promise<InteractionEvent> {
+  return request<InteractionEvent>(`/api/customers/${customerId}/interactions`, {
     method: "POST",
-    body: JSON.stringify(params),
+    body: JSON.stringify({ type, detail }),
   });
 }
 
-export function completeActivation(cartId: string): Promise<Order> {
-  return request<Order>(`/api/carts/${cartId}/checkout/complete`, { method: "POST" });
+export function validateVoucher(
+  code: string,
+  customerId: string,
+  productId: string
+): Promise<{ valid: boolean; reason?: string; voucher?: Voucher }> {
+  const params = new URLSearchParams({ customerId, productId });
+  return request(`/api/vouchers/${encodeURIComponent(code)}?${params}`);
 }
 
 export function submitSupportTicket(params: {
