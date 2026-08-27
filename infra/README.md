@@ -35,7 +35,7 @@ docker compose up --build
 
 - storefront: http://localhost:5173
 - api: http://localhost:4000/health
-- postgres: `localhost:5432`, user/pass/db all `oneix`
+- postgres: `localhost:5433`, user/pass/db all `oneix`
 
 The api container runs `prisma generate` and `prisma db push` against the
 containerized Postgres on startup, so the schema is always in sync with
