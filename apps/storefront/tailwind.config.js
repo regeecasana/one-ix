@@ -4,19 +4,22 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper: "#E8E1CE",
-        canvas: "#F8F4E9",
-        ink: "#21231F",
-        "ink-soft": "#5B5A4E",
-        blaze: "#C7431C",
-        "blaze-dark": "#9C3315",
-        moss: "#4B5D45",
-        hairline: "#CBC1A4",
+        // "Relay" -- a clear-sky, full-signal palette. Same token names as
+        // before so component classNames didn't need touching, just the
+        // brand underneath them.
+        paper: "#EAF1F3",
+        canvas: "#FFFFFF",
+        ink: "#122029",
+        "ink-soft": "#57707C",
+        blaze: "#0EA5A0",
+        "blaze-dark": "#0B8983",
+        moss: "#2F9E6E",
+        hairline: "#D3DEE2",
       },
       fontFamily: {
-        display: ['"Big Shoulders Display"', "sans-serif"],
-        body: ['"Work Sans"', "sans-serif"],
-        mono: ['"IBM Plex Mono"', "monospace"],
+        display: ['"Space Mono"', "monospace"],
+        body: ['"Manrope"', "sans-serif"],
+        mono: ['"Space Mono"', "monospace"],
       },
       borderRadius: {
         sm: "2px",

@@ -1,64 +1,65 @@
-// Line-art stand-ins for product photography -- the seed catalog's
-// imageUrl values are random Lorem Picsum photos with no relation to the
-// actual product, which read as a bug rather than a placeholder. A small,
-// consistent set of technical-drawing-style icons fits the "issued to
-// spec" catalog concept better than mismatched stock photography would.
+// Line-art stand-ins for product photography -- consistent with the
+// storefront's signal/network visual language rather than mismatched stock
+// photos. See docs on why: apps/api/prisma/seed.ts.
 
-function Headphones() {
+function SimCard() {
   return (
     <>
-      <path d="M60 140 A60 60 0 0 1 180 140" />
-      <rect x="40" y="130" width="40" height="62" rx="14" />
-      <rect x="160" y="130" width="40" height="62" rx="14" />
+      <path d="M70 50 H150 L170 70 V188 A12 12 0 0 1 158 200 H82 A12 12 0 0 1 70 188 Z" />
+      <rect x="90" y="82" width="60" height="42" rx="8" />
+      <line x1="100" y1="96" x2="126" y2="96" />
+      <line x1="100" y1="108" x2="126" y2="108" />
     </>
   );
 }
 
-function Keyboard() {
-  const keys = [];
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 9; col++) {
-      keys.push(<rect key={`${row}-${col}`} x={44 + col * 17} y={92 + row * 20} width="12" height="12" rx="2" />);
-    }
-  }
+function Earbuds() {
   return (
     <>
-      <rect x="30" y="80" width="180" height="80" rx="10" />
-      {keys}
+      <rect x="70" y="70" width="36" height="46" rx="18" />
+      <rect x="82" y="110" width="12" height="50" rx="6" />
+      <rect x="134" y="70" width="36" height="46" rx="18" />
+      <rect x="146" y="110" width="12" height="50" rx="6" />
     </>
   );
 }
 
-function Backpack() {
+function Hotspot() {
   return (
     <>
-      <path d="M85 66 Q85 40 120 40 Q155 40 155 66" />
-      <rect x="60" y="66" width="120" height="134" rx="26" />
-      <rect x="82" y="140" width="76" height="46" rx="12" />
-      <line x1="120" y1="86" x2="120" y2="130" />
+      <rect x="75" y="90" width="90" height="80" rx="14" />
+      <circle cx="120" cy="130" r="13" />
+      <path d="M100 90 Q120 62 140 90" />
+      <path d="M85 90 Q120 42 155 90" />
+      <path d="M70 90 Q120 22 170 90" />
     </>
   );
 }
 
-function Watch() {
+function Router() {
   return (
     <>
-      <rect x="100" y="18" width="40" height="42" rx="6" />
-      <rect x="100" y="180" width="40" height="42" rx="6" />
-      <circle cx="120" cy="120" r="46" />
-      <line x1="120" y1="120" x2="120" y2="96" />
-      <line x1="120" y1="120" x2="138" y2="130" />
-      <rect x="163" y="110" width="8" height="20" rx="2" />
+      <rect x="50" y="110" width="140" height="50" rx="10" />
+      <line x1="90" y1="110" x2="80" y2="70" />
+      <circle cx="80" cy="65" r="6" />
+      <line x1="150" y1="110" x2="160" y2="70" />
+      <circle cx="160" cy="65" r="6" />
+      <circle cx="80" cy="135" r="3" />
+      <circle cx="120" cy="135" r="3" />
+      <circle cx="160" cy="135" r="3" />
     </>
   );
 }
 
-function Mug() {
+function Phone() {
   return (
     <>
-      <rect x="66" y="58" width="94" height="118" rx="10" />
-      <path d="M160 86 Q200 86 200 118 Q200 150 160 150" />
-      <line x1="78" y1="86" x2="148" y2="86" strokeDasharray="6 6" />
+      <rect x="80" y="30" width="80" height="180" rx="18" />
+      <line x1="105" y1="45" x2="135" y2="45" />
+      <rect x="95" y="55" width="4" height="8" />
+      <rect x="102" y="50" width="4" height="13" />
+      <rect x="109" y="45" width="4" height="18" />
+      <line x1="105" y1="195" x2="135" y2="195" />
     </>
   );
 }
@@ -74,11 +75,11 @@ function Box() {
 }
 
 const ICONS: Record<string, () => JSX.Element> = {
-  "prod-headphones": Headphones,
-  "prod-keyboard": Keyboard,
-  "prod-backpack": Backpack,
-  "prod-watch": Watch,
-  "prod-mug": Mug,
+  "prod-sim": SimCard,
+  "prod-earbuds": Earbuds,
+  "prod-hotspot": Hotspot,
+  "prod-router": Router,
+  "prod-phone": Phone,
 };
 
 export function ProductIcon({ productId, className = "" }: { productId: string; className?: string }) {
