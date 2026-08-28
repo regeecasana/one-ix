@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useProduct } from "@/hooks/useProducts";
@@ -19,8 +19,15 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
 
+  // React 18 StrictMode (on by default in Next.js dev) double-invokes
+  // effects to surface missing cleanup -- guard against logging the same
+  // product twice on one mount, while still logging again on a genuine
+  // navigation to a different product.
+  const loggedProductIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (product) logEvent("clicked_plan", `Customer clicks the Plan ${product.name}`);
+    if (!product || loggedProductIdRef.current === product.id) return;
+    loggedProductIdRef.current = product.id;
+    logEvent("clicked_plan", `Customer clicks the Plan ${product.name}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id]);
 

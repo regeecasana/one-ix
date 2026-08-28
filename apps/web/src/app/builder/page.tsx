@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { BuilderRecommendation } from "@oneix/shared";
 import { recommendPlan } from "@/lib/api";
@@ -98,7 +98,14 @@ export default function BuilderPage() {
   const logEvent = useCartStore((s) => s.logEvent);
   const router = useRouter();
 
+  // React 18 StrictMode (on by default in Next.js dev) double-invokes
+  // effects to surface missing cleanup -- without this guard, a
+  // fire-and-forget log call like this one fires twice per visit in dev,
+  // posting duplicate "started_builder" comments on the ticket.
+  const startedRef = useRef(false);
   useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
     logEvent("started_builder", "Customer starts the Connectivity Builder");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -39,6 +39,7 @@ export async function identifyCustomer(
     console.log(`[identify] ${email} has no activeTicketId -- creating a new ticket`);
     const ticketId = await createTicket({
       requesterEmail: email,
+      requesterName: customer.name ?? undefined,
       subject: `Activity — ${email}`,
       body: customer.name ? `New Session Started for ${customer.name} (${email})` : `New Session Started for ${email}`,
       customerId: customer.id,

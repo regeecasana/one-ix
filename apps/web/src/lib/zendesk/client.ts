@@ -20,6 +20,7 @@ function baseUrl(): string {
 
 export async function createTicket(params: {
   requesterEmail: string;
+  requesterName?: string;
   subject: string;
   body: string;
   customerId: string;
@@ -47,7 +48,15 @@ export async function createTicket(params: {
         ticket: {
           subject: params.subject,
           comment: { body: params.body },
-          requester: { email: params.requesterEmail },
+          // A brand-new requester (no existing Zendesk end-user for this
+          // email) needs a non-empty name -- at least on this account's
+          // configured brand/form, omitting it fails with "Name: is too
+          // short" rather than deriving one from the email. Fall back to
+          // the email's local-part rather than leave it unset.
+          requester: {
+            email: params.requesterEmail,
+            name: params.requesterName?.trim() || params.requesterEmail.split("@")[0],
+          },
           tags: Array.from(
             new Set(["oneix", "xlsmart_support", `customer_${params.customerId}`, ...(params.tags ?? [])])
           ),
