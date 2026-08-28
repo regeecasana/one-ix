@@ -15,9 +15,9 @@ coverage/
 *.tsbuildinfo
 
 # Zendesk app build output
-apps/zendesk-app/dist/
-apps/zendesk-app/tmp/
-apps/zendesk-app/assets/
+apps/zendesk-ticket-sidebar-app/dist/
+apps/zendesk-ticket-sidebar-app/tmp/
+apps/zendesk-ticket-sidebar-app/assets/
 
 # Playwright MCP screenshots, when saved without an explicit path
 .playwright-mcp/
@@ -25,3 +25,4 @@ apps/zendesk-app/assets/
 .vercel
 
 .vercel
+.env*
