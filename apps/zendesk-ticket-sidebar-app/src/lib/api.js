@@ -10,35 +10,52 @@ export class ApiError extends Error {
   }
 }
 
-async function getSettings(client) {
+async function getApiBaseUrl(client) {
   const metadata = await client.metadata()
-  // eslint-disable-next-line no-console
-  console.log('[sidebar] client.metadata() ->', metadata)
   const apiBaseUrl = String(metadata.settings?.apiBaseUrl ?? '').replace(/\/+$/, '')
-  const internalToken = String(metadata.settings?.internalToken ?? '')
-  if (!apiBaseUrl || !internalToken) {
-    throw new Error(
-      `apiBaseUrl / internalToken aren't configured for this app install. Got settings keys: [${Object.keys(metadata.settings ?? {}).join(', ')}]`
-    )
+  if (!apiBaseUrl) {
+    throw new Error("apiBaseUrl isn't configured for this app install.")
   }
-  return { apiBaseUrl, internalToken }
+  return apiBaseUrl
 }
 
-async function request(client, path, init) {
-  const { apiBaseUrl, internalToken } = await getSettings(client)
-  const res = await fetch(`${apiBaseUrl}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Internal-Token': internalToken,
-      ...init?.headers
+// internalToken is a `secure: true` manifest parameter -- Zendesk never
+// hands those to the app's own client-side JS (client.metadata().settings
+// simply omits the key entirely, confirmed live: settings only ever
+// contained { name, apiBaseUrl, title }). The only way to use a secure
+// parameter is client.request()'s {{setting.<name>}} template syntax,
+// which Zendesk's own request-proxying layer substitutes server-side
+// before the request leaves their infrastructure -- so this has to go
+// through client.request(), not fetch().
+async function request(client, path, init = {}) {
+  const apiBaseUrl = await getApiBaseUrl(client)
+  try {
+    return await client.request({
+      url: `${apiBaseUrl}${path}`,
+      type: init.method ?? 'GET',
+      ...(init.body ? { contentType: 'application/json', data: init.body } : {}),
+      headers: {
+        'X-Internal-Token': '{{setting.internalToken}}',
+        ...init.headers
+      },
+      secure: true,
+      cors: true
+    })
+  } catch (err) {
+    // ZAF rejects non-2xx responses with a jqXHR-like object -- {status,
+    // statusText, responseText} -- rather than throwing a JS Error.
+    const status = err?.status
+    let body = null
+    try {
+      body = JSON.parse(err?.responseText ?? '')
+    } catch {
+      // not JSON -- leave body null
     }
-  })
-  const body = await res.json().catch(() => null)
-  if (!res.ok) {
-    throw new ApiError(res.status, body?.error ?? 'request_failed')
+    if (status) {
+      throw new ApiError(status, body?.error ?? err?.statusText ?? 'request_failed')
+    }
+    throw err instanceof Error ? err : new Error(String(err?.responseText || err))
   }
-  return body
 }
 
 export function getCustomerIdForTicket(client, ticketId) {
