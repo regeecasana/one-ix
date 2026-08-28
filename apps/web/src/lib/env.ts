@@ -31,6 +31,11 @@ export const env = {
     subdomain: process.env.ZENDESK_SUBDOMAIN ?? "",
     email: process.env.ZENDESK_EMAIL ?? "",
     apiToken: process.env.ZENDESK_API_TOKEN ?? "",
+    // This Zendesk account hosts many brands (client demos) on one shared
+    // instance -- without an explicit brand_id, ticket creation silently
+    // falls back to the account's default brand instead of ours. Optional
+    // because a single-brand account doesn't need it.
+    brandId: process.env.ZENDESK_BRAND_ID ?? "",
   },
   voucherTtlMinutes: num("VOUCHER_TTL_MINUTES", 30),
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",

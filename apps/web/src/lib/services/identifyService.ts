@@ -1,6 +1,6 @@
 import type { Customer as PrismaCustomer } from "@prisma/client";
 import { prisma } from "../db";
-import { addTicketComment, createTicket } from "../zendesk/client";
+import { addTicketComment, createTicket, getTicketStatus } from "../zendesk/client";
 
 export interface BufferedEvent {
   type: string;
@@ -20,6 +20,20 @@ export async function identifyCustomer(
     update: params.name ? { name: params.name } : {},
     create: { email, name: params.name },
   });
+
+  // A closed ticket is done -- Zendesk won't take further comments on it,
+  // and a returning customer with a new issue shouldn't get lumped into
+  // old, resolved history anyway. Start a fresh one instead of reusing it.
+  if (customer.activeTicketId) {
+    const status = await getTicketStatus(customer.activeTicketId);
+    if (status === "closed") {
+      console.log(`[identify] ${email}'s ticket ${customer.activeTicketId} is closed -- starting a new one`);
+      customer = await prisma.customer.update({
+        where: { id: customer.id },
+        data: { activeTicketId: null },
+      });
+    }
+  }
 
   if (!customer.activeTicketId) {
     console.log(`[identify] ${email} has no activeTicketId -- creating a new ticket`);

@@ -30,7 +30,9 @@ export async function createTicket(params: {
   }
 
   const url = `${baseUrl()}/tickets.json`;
-  console.log(`[zendesk] createTicket -> POST ${url} (subdomain=${env.zendesk.subdomain}, email=${env.zendesk.email})`);
+  console.log(
+    `[zendesk] createTicket -> POST ${url} (subdomain=${env.zendesk.subdomain}, email=${env.zendesk.email}, brand_id=${env.zendesk.brandId || "unset -- falls back to account default brand"})`
+  );
 
   try {
     const res = await fetch(url, {
@@ -42,6 +44,7 @@ export async function createTicket(params: {
           comment: { body: params.body },
           requester: { email: params.requesterEmail },
           tags: ["xlsmart_support", `customer_${params.customerId}`],
+          ...(env.zendesk.brandId ? { brand_id: Number(env.zendesk.brandId) } : {}),
         },
       }),
     });
@@ -58,6 +61,30 @@ export async function createTicket(params: {
     return String(data.ticket.id);
   } catch (err) {
     console.error("[zendesk] createTicket error", err);
+    return null;
+  }
+}
+
+// Zendesk statuses: new | open | pending | hold | solved | closed. Closed
+// is terminal -- Zendesk rejects further comments/reopens on it, so a
+// customer whose last ticket landed there needs a fresh one, not a reuse.
+export async function getTicketStatus(ticketId: string): Promise<string | null> {
+  if (!isConfigured()) return null;
+
+  try {
+    const res = await fetch(`${baseUrl()}/tickets/${ticketId}.json`, {
+      headers: { Authorization: authHeader() },
+    });
+    if (!res.ok) {
+      // 404 -- e.g. the ticket belongs to a different Zendesk account than
+      // the one currently configured -- treat the same as "can't reuse it".
+      console.error(`[zendesk] getTicketStatus failed: ${res.status} ${await res.text()}`);
+      return null;
+    }
+    const data = (await res.json()) as { ticket: { status: string } };
+    return data.ticket.status;
+  } catch (err) {
+    console.error("[zendesk] getTicketStatus error", err);
     return null;
   }
 }
