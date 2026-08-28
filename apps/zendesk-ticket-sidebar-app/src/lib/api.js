@@ -12,10 +12,14 @@ export class ApiError extends Error {
 
 async function getSettings(client) {
   const metadata = await client.metadata()
-  const apiBaseUrl = String(metadata.settings.apiBaseUrl ?? '').replace(/\/+$/, '')
-  const internalToken = String(metadata.settings.internalToken ?? '')
+  // eslint-disable-next-line no-console
+  console.log('[sidebar] client.metadata() ->', metadata)
+  const apiBaseUrl = String(metadata.settings?.apiBaseUrl ?? '').replace(/\/+$/, '')
+  const internalToken = String(metadata.settings?.internalToken ?? '')
   if (!apiBaseUrl || !internalToken) {
-    throw new Error("apiBaseUrl / internalToken aren't configured for this app install.")
+    throw new Error(
+      `apiBaseUrl / internalToken aren't configured for this app install. Got settings keys: [${Object.keys(metadata.settings ?? {}).join(', ')}]`
+    )
   }
   return { apiBaseUrl, internalToken }
 }
