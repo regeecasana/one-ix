@@ -13,7 +13,10 @@ export default function StaticCopy({ targets }) {
       const rootPath = config.build.outDir
       await Promise.all(
         targets.map(async ({ src, dest, modifier = (data) => data }) => {
-          const paths = await glob(src)
+          // fast-glob requires forward-slash patterns -- path.resolve() on
+          // Windows returns backslashes, which glob() silently matches
+          // nothing against instead of erroring.
+          const paths = await glob(src.split(path.sep).join('/'))
           const destinationPath = path.resolve(rootPath, dest)
           await processFiles(paths, destinationPath, modifier)
         })
