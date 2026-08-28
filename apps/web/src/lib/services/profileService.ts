@@ -33,14 +33,16 @@ export async function buildCustomerProfile(customerId: string): Promise<Customer
     orderBy: { createdAt: "desc" },
   });
 
-  const activeVoucherRow = await prisma.voucher.findFirst({
-    where: { customerId, status: "active" },
+  const latestVoucherRow = await prisma.voucher.findFirst({
+    where: { customerId },
     orderBy: { createdAt: "desc" },
   });
   // Checked live against expiresAt, not just the status column -- same
   // reasoning as every earlier version of this endpoint.
   const activeVoucher =
-    activeVoucherRow && activeVoucherRow.expiresAt.getTime() > Date.now() ? serializeVoucher(activeVoucherRow) : null;
+    latestVoucherRow && latestVoucherRow.status === "active" && latestVoucherRow.expiresAt.getTime() > Date.now()
+      ? serializeVoucher(latestVoucherRow)
+      : null;
 
   const recentEventRows = await prisma.interactionEvent.findMany({
     where: { customerId },
@@ -53,6 +55,7 @@ export async function buildCustomerProfile(customerId: string): Promise<Customer
     latestCart,
     latestOrder: latestOrderRow ? serializeOrder(latestOrderRow) : null,
     activeVoucher,
+    latestVoucher: latestVoucherRow ? serializeVoucher(latestVoucherRow) : null,
     recentEvents: recentEventRows.map(serializeInteractionEvent),
   };
 }

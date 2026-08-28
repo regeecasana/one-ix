@@ -98,6 +98,14 @@ export interface CustomerProfile {
   customer: Customer;
   latestCart: (Cart & { products: Record<string, Product> }) | null;
   latestOrder: Order | null;
+  /** Only set if there's a currently-valid (status active, not expired) voucher. */
   activeVoucher: Voucher | null;
+  /**
+   * The customer's most recent voucher regardless of status -- lets the
+   * sidebar app tell "never issued" (null) apart from "expired, unused"
+   * (set, but activeVoucher is null) so it can offer "Resend" only in the
+   * latter case. See docs/zendesk-app.md.
+   */
+  latestVoucher: Voucher | null;
   recentEvents: InteractionEvent[];
 }

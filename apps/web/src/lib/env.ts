@@ -33,4 +33,5 @@ export const env = {
     apiToken: process.env.ZENDESK_API_TOKEN ?? "",
   },
   voucherTtlMinutes: num("VOUCHER_TTL_MINUTES", 30),
+  openaiApiKey: process.env.OPENAI_API_KEY ?? "",
 };

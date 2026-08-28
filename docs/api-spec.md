@@ -47,9 +47,11 @@ spam interaction events onto a ticket that isn't theirs.
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/internal/tickets/:ticketId/customer` | resolve a ticket to a `customerId` (checks both `Customer.activeTicketId` and `SupportTicket.zendeskTicketId`) |
-| GET | `/api/internal/customers/:customerId/profile` | customer info, latest cart + recommendation context, recent `InteractionEvent`s, active voucher (if any), order history -- what the sidebar app renders |
+| GET | `/api/internal/customers/:customerId/profile` | customer info, latest cart + recommendation context, recent `InteractionEvent`s, active voucher (if any), most recent voucher regardless of status, order history -- what the sidebar app renders |
+| GET | `/api/internal/customers/by-email?email=` | same profile shape, looked up by email instead of id -- powers the sidebar app's "find customer by email" search and its not-linked-ticket fallback |
 | POST | `/api/internal/customers/:customerId/vouchers` | agent action: issue a voucher. Body `{ productId, percentOff?, ttlMinutes? }` (defaults 20 / 30). Emails the customer, posts a ticket comment |
 | POST | `/api/internal/vouchers/:voucherId/resend` | agent action: extend the expiry and resend. Increments `resendCount`, re-emails, posts a comment -- this is "checking back the next day" |
+| POST | `/api/internal/customers/:customerId/insights` | on-demand only: summarizes the customer's profile via OpenAI and returns `{ insight }`, a short actionable read for the agent. Rate-limited (10/min). Returns 503 `insights_not_configured` if `OPENAI_API_KEY` isn't set |
 | POST | `/api/internal/tickets/:ticketId/close` | agent action: closes the ticket via the Zendesk API and clears `Customer.activeTicketId` so their next interaction opens a fresh one |
 
 ## Outbound: api -> Zendesk
