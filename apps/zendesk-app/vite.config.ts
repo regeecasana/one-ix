@@ -3,21 +3,25 @@ import { resolve, dirname } from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import StaticCopy from "./rollup/static-copy-plugin";
+import { extractMarketplaceTranslation } from "./rollup/modifiers/translations";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Builds into dist/assets/, and manifest.json is copied into dist/ via
-// StaticCopy so dist/manifest.json + dist/assets/iframe.html match
-// manifest.json's ticket_sidebar path ("assets/iframe.html").
-// Package with: zcli apps:package dist
 export default defineConfig({
   root: "src",
   base: "./",
   plugins: [
     react(),
     StaticCopy({
-      targets: [{ src: resolve(__dirname, "manifest.json"), dest: "../" }],
+      targets: [
+        { src: resolve(__dirname, "src/manifest.json"), dest: "../" },
+        {
+          src: resolve(__dirname, "src/translations/en.json"),
+          dest: "../translations",
+          modifier: extractMarketplaceTranslation,
+        },
+      ],
     }),
   ],
   build: {

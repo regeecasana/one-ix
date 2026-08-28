@@ -23,9 +23,10 @@
     },
     {
       "name": "internalToken",
-      "type": "password",
+      "type": "text",
       "required": true,
-      "helpText": "Shared secret sent as X-Internal-Token to apps/api's internal endpoints"
+      "helpText": "Shared secret sent as X-Internal-Token to apps/api's internal endpoints",
+      "secure": true
     }
   ]
 }
