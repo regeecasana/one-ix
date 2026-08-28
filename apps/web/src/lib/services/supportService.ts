@@ -27,6 +27,7 @@ export async function submitSupportTicket(params: {
     subject: params.subject,
     body,
     customerId: customer.id,
+    tags: ["customer_submitted", "contact_form"],
   });
 
   return prisma.supportTicket.create({

@@ -42,6 +42,7 @@ export async function identifyCustomer(
       subject: `Activity — ${email}`,
       body: customer.name ? `New Session Started for ${customer.name} (${email})` : `New Session Started for ${email}`,
       customerId: customer.id,
+      tags: ["activity_session", "auto_created"],
     });
     if (ticketId) {
       customer = await prisma.customer.update({

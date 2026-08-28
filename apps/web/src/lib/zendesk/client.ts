@@ -23,6 +23,11 @@ export async function createTicket(params: {
   subject: string;
   body: string;
   customerId: string;
+  // Extra tags on top of the always-applied ["oneix", "xlsmart_support",
+  // customer_<id>] -- lets callers mark what kind of ticket this is (an
+  // auto-created activity ticket vs. a real customer-submitted one) without
+  // every call site having to repeat the base set.
+  tags?: string[];
 }): Promise<string | null> {
   if (!isConfigured()) {
     console.warn(`[zendesk] not configured -- skipping ticket creation for customer ${params.customerId}`);
@@ -43,7 +48,9 @@ export async function createTicket(params: {
           subject: params.subject,
           comment: { body: params.body },
           requester: { email: params.requesterEmail },
-          tags: ["xlsmart_support", `customer_${params.customerId}`],
+          tags: Array.from(
+            new Set(["oneix", "xlsmart_support", `customer_${params.customerId}`, ...(params.tags ?? [])])
+          ),
           ...(env.zendesk.brandId ? { brand_id: Number(env.zendesk.brandId) } : {}),
         },
       }),
