@@ -1,0 +1,2 @@
+apiBaseUrl: 'http://localhost:4000'
+internalToken: 'paste-the-INTERNAL_API_TOKEN-from-apps/web/.env.local-here'

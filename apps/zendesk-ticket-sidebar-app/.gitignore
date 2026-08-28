@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# zcli apps:server test values for manifest.json's parameters -- contains
+# the real INTERNAL_API_TOKEN, see settings.yml.example
+settings.yml
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
