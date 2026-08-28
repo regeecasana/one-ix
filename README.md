@@ -33,10 +33,13 @@ Everything is real except payment: activation writes an actual `Order`
 record in the backend, vouchers are real time-limited codes validated
 server-side, the Zendesk ticket is a real ticket in a real Zendesk
 instance with real comments, and every email is a real email (sent to a
-disposable Ethereal inbox by default). There's no AI-diagnosis step before
-human handoff, and no background jobs -- the agent drives the voucher
-lifecycle by hand, which is the point of the demo. See
-[docs/architecture.md](docs/architecture.md) for exactly what's simulated.
+disposable Ethereal inbox by default). There's no automated
+diagnose-and-act AI agent gating human handoff, and no background jobs --
+the agent drives the voucher lifecycle by hand, which is the point of the
+demo. The sidebar app's "Get AI insight" button is explicitly the
+opposite of that: read-only, on-demand, the agent still decides and
+clicks. See [docs/architecture.md](docs/architecture.md) for exactly
+what's simulated.
 
 ## Structure
 
@@ -88,8 +91,11 @@ save/activate, with every interaction mirrored to the ticket as a comment,
 plus agent-issued voucher redemption at checkout, as described in
 [docs/user-stories.md](docs/user-stories.md). No accounts/signup — identity
 is resolved by email only.
-`apps/zendesk-app` is still a scaffold with no UI — see
-[docs/roadmap.md](docs/roadmap.md) for what's left.
+`apps/zendesk-app` is implemented and verified against the deployed API
+(profile view, voucher issue/resend, find-by-email search, AI insight,
+close ticket) -- not yet installed against a live Zendesk trial instance,
+which is the one remaining manual step. See
+[docs/roadmap.md](docs/roadmap.md).
 
 ## Quick start
 
