@@ -22,6 +22,7 @@ export async function identifyCustomer(
   });
 
   if (!customer.activeTicketId) {
+    console.log(`[identify] ${email} has no activeTicketId -- creating a new ticket`);
     const ticketId = await createTicket({
       requesterEmail: email,
       subject: `Activity — ${email}`,
@@ -34,6 +35,10 @@ export async function identifyCustomer(
         data: { activeTicketId: ticketId },
       });
     }
+  } else {
+    console.log(
+      `[identify] ${email} already has activeTicketId=${customer.activeTicketId} -- reusing it, no new ticket created`
+    );
   }
 
   if (params.cartId) {

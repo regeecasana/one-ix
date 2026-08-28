@@ -29,8 +29,11 @@ export async function createTicket(params: {
     return null;
   }
 
+  const url = `${baseUrl()}/tickets.json`;
+  console.log(`[zendesk] createTicket -> POST ${url} (subdomain=${env.zendesk.subdomain}, email=${env.zendesk.email})`);
+
   try {
-    const res = await fetch(`${baseUrl()}/tickets.json`, {
+    const res = await fetch(url, {
       method: "POST",
       headers: { Authorization: authHeader(), "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -43,12 +46,15 @@ export async function createTicket(params: {
       }),
     });
 
+    console.log(`[zendesk] createTicket <- ${res.status} (response.url=${res.url})`);
+
     if (!res.ok) {
       console.error(`[zendesk] createTicket failed: ${res.status} ${await res.text()}`);
       return null;
     }
 
-    const data = (await res.json()) as { ticket: { id: number } };
+    const data = (await res.json()) as { ticket: { id: number; url: string } };
+    console.log(`[zendesk] createTicket created ticket ${data.ticket.id} at ${data.ticket.url}`);
     return String(data.ticket.id);
   } catch (err) {
     console.error("[zendesk] createTicket error", err);
@@ -62,12 +68,17 @@ export async function addTicketComment(ticketId: string, body: string): Promise<
     return;
   }
 
+  const url = `${baseUrl()}/tickets/${ticketId}.json`;
+  console.log(`[zendesk] addTicketComment -> PUT ${url} (subdomain=${env.zendesk.subdomain})`);
+
   try {
-    const res = await fetch(`${baseUrl()}/tickets/${ticketId}.json`, {
+    const res = await fetch(url, {
       method: "PUT",
       headers: { Authorization: authHeader(), "Content-Type": "application/json" },
       body: JSON.stringify({ ticket: { comment: { body, public: false } } }),
     });
+
+    console.log(`[zendesk] addTicketComment <- ${res.status}`);
 
     if (!res.ok) {
       console.error(`[zendesk] addComment failed: ${res.status} ${await res.text()}`);
