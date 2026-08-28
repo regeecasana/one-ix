@@ -40,7 +40,7 @@ export async function identifyCustomer(
     const ticketId = await createTicket({
       requesterEmail: email,
       subject: `Activity — ${email}`,
-      body: "New session started.",
+      body: customer.name ? `New Session Started for ${customer.name} (${email})` : `New Session Started for ${email}`,
       customerId: customer.id,
     });
     if (ticketId) {

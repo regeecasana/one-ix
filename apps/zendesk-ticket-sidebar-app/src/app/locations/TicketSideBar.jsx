@@ -42,8 +42,14 @@ function TicketSideBar() {
       setProfile(p)
       setPhase('ready')
     } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[sidebar] search failed', err)
       setErrorMessage(
-        err instanceof ApiError && err.status === 404 ? 'No customer with that email.' : 'Search failed.'
+        err instanceof ApiError
+          ? err.status === 404
+            ? 'No customer with that email.'
+            : `Search failed (${err.status}): ${err.message}`
+          : `Search failed: ${err instanceof Error ? err.message : String(err)}`
       )
       setPhase('error')
     }
