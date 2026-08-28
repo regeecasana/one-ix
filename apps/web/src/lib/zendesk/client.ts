@@ -31,7 +31,7 @@ export async function createTicket(params: {
 
   const url = `${baseUrl()}/tickets.json`;
   console.log(
-    `[zendesk] createTicket -> POST ${url} (subdomain=${env.zendesk.subdomain}, email=${env.zendesk.email}, brand_id=${env.zendesk.brandId || "unset -- falls back to account default brand"})`
+    `[zendesk] createTicket -> POST ${url} (subdomain=${env.zendesk.subdomain}, email=${env.zendesk.email}, brand_id=${env.zendesk.brandId || "unset -- falls back to account default brand"})`,
   );
 
   try {

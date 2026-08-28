@@ -27,15 +27,22 @@ export const env = {
   siteUrl,
   internalApiToken: process.env.INTERNAL_API_TOKEN ?? "",
   sessionSecret,
+  // Prefixed WEB_ -- ZENDESK_SUBDOMAIN/EMAIL/API_TOKEN collide with names
+  // zcli's own global config uses (apps/zendesk-ticket-sidebar-app), and a
+  // machine-level env var of that name always wins over anything in this
+  // app's .env.local (Next.js/dotenv never override pre-existing
+  // process.env). Scoping these to this app is what actually fixes it --
+  // renaming the .env file wouldn't, since OS env still outranks any
+  // .env* file regardless of filename.
   zendesk: {
-    subdomain: process.env.ZENDESK_SUBDOMAIN ?? "",
-    email: process.env.ZENDESK_EMAIL ?? "",
-    apiToken: process.env.ZENDESK_API_TOKEN ?? "",
+    subdomain: process.env.WEB_ZENDESK_SUBDOMAIN ?? "",
+    email: process.env.WEB_ZENDESK_EMAIL ?? "",
+    apiToken: process.env.WEB_ZENDESK_API_TOKEN ?? "",
     // This Zendesk account hosts many brands (client demos) on one shared
     // instance -- without an explicit brand_id, ticket creation silently
     // falls back to the account's default brand instead of ours. Optional
     // because a single-brand account doesn't need it.
-    brandId: process.env.ZENDESK_BRAND_ID ?? "",
+    brandId: process.env.WEB_ZENDESK_BRAND_ID ?? "",
   },
   voucherTtlMinutes: num("VOUCHER_TTL_MINUTES", 30),
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
