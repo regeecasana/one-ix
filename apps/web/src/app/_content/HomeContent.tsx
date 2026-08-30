@@ -1,20 +1,37 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useProducts } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/ProductCard";
 import { useCartStore } from "@/store/cartStore";
+import { PRODUCT_CATEGORIES, productCategory } from "@/lib/productMeta";
 
 const CAMPAIGN_COPY: Record<string, string> = {
   "creator-package": "Creator Package",
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  MOBILE: "Mobile",
+  FAMILY: "Family",
+  HOME: "Home & Fiber",
+  ROAMING: "Roaming",
+  BUSINESS: "Business",
+  "ADD-ON": "Add-ons",
 };
 
 export function HomeContent() {
   const { products, loading, error } = useProducts();
   const searchParams = useSearchParams();
   const captureAttribution = useCartStore((s) => s.captureAttribution);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  const filteredProducts = useMemo(() => {
+    if (!products) return products;
+    if (!activeCategory) return products;
+    return products.filter((p) => productCategory(p.id) === activeCategory);
+  }, [products, activeCategory]);
 
   const utmSource = searchParams.get("utm_source") ?? undefined;
   const utmCampaign = searchParams.get("utm_campaign") ?? undefined;
@@ -56,8 +73,38 @@ export function HomeContent() {
       <section>
         <div className="mb-5 flex items-baseline justify-between">
           <h2 className="font-display text-lg font-bold text-ink">Or browse the catalog</h2>
-          {products && <span className="eyebrow">{products.length} items</span>}
+          {filteredProducts && <span className="eyebrow">{filteredProducts.length} items</span>}
         </div>
+
+        {products && (
+          <div className="mb-6 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveCategory(null)}
+              className={`rounded-full px-4 py-1.5 font-display text-xs font-semibold transition ${
+                activeCategory === null
+                  ? "bg-gradient-primary text-white"
+                  : "border border-hairline bg-white text-ink-soft hover:border-blaze"
+              }`}
+            >
+              All
+            </button>
+            {PRODUCT_CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setActiveCategory(cat)}
+                className={`rounded-full px-4 py-1.5 font-display text-xs font-semibold transition ${
+                  activeCategory === cat
+                    ? "bg-gradient-primary text-white"
+                    : "border border-hairline bg-white text-ink-soft hover:border-blaze"
+                }`}
+              >
+                {CATEGORY_LABELS[cat] ?? cat}
+              </button>
+            ))}
+          </div>
+        )}
 
         {error && <p className="font-body text-sm text-pink">{error}</p>}
 
@@ -69,9 +116,9 @@ export function HomeContent() {
           </div>
         )}
 
-        {products && (
+        {filteredProducts && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {products.map((product) => (
+            {filteredProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>

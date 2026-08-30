@@ -9,6 +9,7 @@ import { formatCents } from "@/lib/money";
 import { useCartStore } from "@/store/cartStore";
 import { Button } from "@/components/Button";
 import { ProductIcon } from "@/components/ProductIcon";
+import { productCategory } from "@/lib/productMeta";
 
 const USAGE_OPTIONS = [
   { value: "streaming", label: "Livestreaming" },
@@ -162,7 +163,7 @@ export default function BuilderPage() {
         <div className="card-shadow rounded-2xl border border-hairline bg-white p-6">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-lavender text-blaze">
-              <ProductIcon productId={product.id} className="h-10 w-10" />
+              <ProductIcon productId={product.id} category={productCategory(product.id)} className="h-10 w-10" />
             </div>
             <div>
               <h2 className="font-display text-xl font-bold text-ink">{product.name}</h2>

@@ -64,7 +64,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   return (
     <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
       <div className="card-shadow flex aspect-[3/2] items-center justify-center rounded-2xl bg-lavender text-blaze lg:aspect-square">
-        <ProductIcon productId={product.id} className="h-32 w-32" />
+        <ProductIcon productId={product.id} category={productCategory(product.id)} className="h-32 w-32" />
       </div>
 
       <div className="flex flex-col gap-4">

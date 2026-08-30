@@ -21,7 +21,7 @@ export function ProductCard({ product }: { product: Product }) {
         onClick={() => logEvent("clicked_plan", `Customer clicks the Plan ${product.name}`)}
         className="flex aspect-[3/2] items-center justify-center bg-lavender text-blaze"
       >
-        <ProductIcon productId={product.id} className="h-20 w-20" />
+        <ProductIcon productId={product.id} category={productCategory(product.id)} className="h-20 w-20" />
       </Link>
       <div className="flex flex-1 flex-col gap-2 p-5">
         <span className="eyebrow text-blaze">{productCategory(product.id)}</span>

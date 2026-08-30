@@ -50,6 +50,197 @@ const products = [
     imageUrl: "",
     stock: 500,
   },
+
+  // Mobile plans -- more tiers around the original three so the catalog
+  // reads as a real ladder, not three arbitrary points.
+  {
+    id: "plan-gosurf199",
+    name: "GoSurf199",
+    description: "3GB data, unlimited calls & text. For light, occasional use.",
+    priceCents: 39000,
+    imageUrl: "",
+    stock: 500,
+  },
+  {
+    id: "plan-gosurf499",
+    name: "GoSurf499",
+    description: "8GB data, unlimited calls & text, free social media access.",
+    priceCents: 59000,
+    imageUrl: "",
+    stock: 500,
+  },
+  {
+    id: "plan-gosurf1499",
+    name: "GoSurf1499",
+    description: "50GB data, priority network during peak hours, rollover unused data.",
+    priceCents: 159000,
+    imageUrl: "",
+    stock: 500,
+  },
+  {
+    id: "plan-unlimited-lite",
+    name: "Unlimited Lite",
+    description: "Unlimited data, capped at 3Mbps after 50GB. No overage charges, ever.",
+    priceCents: 179000,
+    imageUrl: "",
+    stock: 500,
+  },
+  {
+    id: "plan-unlimited-pro",
+    name: "Unlimited Pro",
+    description: "True unlimited data at full speed, 5G priority lane, no throttling.",
+    priceCents: 299000,
+    imageUrl: "",
+    stock: 500,
+  },
+  {
+    id: "plan-student",
+    name: "Student SATU",
+    description: "5GB data plus unlimited social media, discounted for verified students.",
+    priceCents: 45000,
+    imageUrl: "",
+    stock: 500,
+  },
+
+  // Family / multi-line
+  {
+    id: "plan-family-4",
+    name: "Family Connect 4",
+    description: "200GB shared across 4 lines, individual usage caps, one bill.",
+    priceCents: 349000,
+    imageUrl: "",
+    stock: 200,
+  },
+  {
+    id: "plan-family-6",
+    name: "Family Connect 6",
+    description: "300GB shared across 6 lines, parental controls included on every line.",
+    priceCents: 499000,
+    imageUrl: "",
+    stock: 200,
+  },
+
+  // Home & fiber
+  {
+    id: "plan-home-basic",
+    name: "XL Home Basic",
+    description: "50Mbps fiber, unlimited data. A solid start for a small household.",
+    priceCents: 189000,
+    imageUrl: "",
+    stock: 300,
+  },
+  {
+    id: "plan-home-pro",
+    name: "XL Home Pro",
+    description: "300Mbps fiber with mesh WiFi included, covers up to 3 floors.",
+    priceCents: 329000,
+    imageUrl: "",
+    stock: 300,
+  },
+  {
+    id: "plan-home-gamer",
+    name: "XL Home Gamer",
+    description: "500Mbps fiber with a dedicated low-latency lane for online play.",
+    priceCents: 349000,
+    imageUrl: "",
+    stock: 150,
+  },
+
+  // Roaming & international
+  {
+    id: "addon-roam-asean",
+    name: "ASEAN Roaming Pass",
+    description: "7 days of data roaming across Southeast Asia, no daily caps.",
+    priceCents: 99000,
+    imageUrl: "",
+    stock: 500,
+  },
+  {
+    id: "addon-roam-global",
+    name: "Global Roaming Pass",
+    description: "15 days of data roaming in 80+ countries worldwide.",
+    priceCents: 249000,
+    imageUrl: "",
+    stock: 500,
+  },
+  {
+    id: "addon-intl-call",
+    name: "International Call Pack",
+    description: "500 minutes of calls to 50+ countries, valid for 30 days.",
+    priceCents: 59000,
+    imageUrl: "",
+    stock: 500,
+  },
+
+  // Business / SME
+  {
+    id: "plan-biz-starter",
+    name: "XL Business Starter",
+    description: "5 lines, 500GB pooled data, static IP for remote access.",
+    priceCents: 599000,
+    imageUrl: "",
+    stock: 100,
+  },
+  {
+    id: "plan-biz-pro",
+    name: "XL Business Pro",
+    description: "20 lines, 2TB pooled data, dedicated account support.",
+    priceCents: 1499000,
+    imageUrl: "",
+    stock: 50,
+  },
+
+  // Add-ons
+  {
+    id: "addon-data-boost-5gb",
+    name: "5GB Data Boost",
+    description: "One-time top-up, stacks on top of your current plan's data.",
+    priceCents: 25000,
+    imageUrl: "",
+    stock: 1000,
+  },
+  {
+    id: "addon-data-boost-20gb",
+    name: "20GB Data Boost",
+    description: "One-time top-up for heavier months, no commitment change.",
+    priceCents: 65000,
+    imageUrl: "",
+    stock: 1000,
+  },
+  {
+    id: "addon-mesh-wifi",
+    name: "Mesh WiFi Extender",
+    description: "Whole-home coverage add-on, pairs with any XL Home plan.",
+    priceCents: 149000,
+    imageUrl: "",
+    stock: 300,
+  },
+  {
+    id: "addon-security-suite",
+    name: "SecureNet Suite",
+    description: "Device protection, parental controls, and ad-blocking across your network.",
+    priceCents: 39000,
+    imageUrl: "",
+    stock: 500,
+  },
+  {
+    id: "addon-cloud-storage",
+    name: "100GB Cloud Backup",
+    description: "Automatic photo and file backup, accessible from any device.",
+    priceCents: 29000,
+    imageUrl: "",
+    stock: 500,
+  },
+
+  // Streaming / gaming niche
+  {
+    id: "plan-streamer-plus",
+    name: "Streamer+ Plan",
+    description: "150GB data, upload-optimized with low jitter for livestreaming.",
+    priceCents: 219000,
+    imageUrl: "",
+    stock: 300,
+  },
 ];
 
 async function main() {
