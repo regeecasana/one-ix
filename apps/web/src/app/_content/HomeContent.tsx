@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useProducts } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/ProductCard";
+import { ProductIcon } from "@/components/ProductIcon";
 import { useCartStore } from "@/store/cartStore";
 import { PRODUCT_CATEGORIES, productCategory } from "@/lib/productMeta";
 
@@ -20,6 +21,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   BUSINESS: "Business",
   "ADD-ON": "Add-ons",
 };
+
+const WHAT_WE_OFFER: { category: string; title: string; description: string }[] = [
+  { category: "MOBILE", title: "Mobile", description: "Data plans from light everyday use to true unlimited, 5G priority." },
+  { category: "HOME", title: "Home & Fiber", description: "Fiber internet for the whole house, with mesh WiFi where you need it." },
+  { category: "FAMILY", title: "Family", description: "Shared data across every line in the house, one bill, individual caps." },
+  { category: "ROAMING", title: "Roaming", description: "Regional and global data passes so you stay connected abroad." },
+  { category: "BUSINESS", title: "Business", description: "Pooled data and dedicated support for teams, from 5 lines to 20+." },
+];
 
 export function HomeContent() {
   const { products, loading, error } = useProducts();
@@ -68,6 +77,33 @@ export function HomeContent() {
         >
           Build My Setup →
         </Link>
+      </section>
+
+      <section className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:items-center">
+        <div>
+          <span className="eyebrow text-blaze">What is XLSmart?</span>
+          <h2 className="mt-2 font-display text-2xl font-bold leading-tight text-ink sm:text-3xl">
+            One connectivity provider, built around how you actually connect
+          </h2>
+          <p className="mt-3 font-body text-sm text-ink-soft">
+            XLSmart is a connectivity provider covering mobile, home fiber, family bundles, roaming,
+            and business lines under one account. Instead of scrolling a generic plan list, the
+            Connectivity Builder asks what you actually use your connection for and recommends the one
+            setup that fits -- then keeps it saved so you can activate whenever you're ready.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {WHAT_WE_OFFER.map((item) => (
+            <div key={item.category} className="rounded-2xl border border-hairline bg-white p-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-lavender text-blaze">
+                <ProductIcon productId="" category={item.category} className="h-6 w-6" />
+              </div>
+              <p className="mt-3 font-display text-sm font-bold text-ink">{item.title}</p>
+              <p className="mt-1 font-body text-xs text-ink-soft">{item.description}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section>
