@@ -57,7 +57,7 @@ export function HomeContent() {
 
   return (
     <div className="flex flex-col gap-14">
-      <section className="overflow-hidden rounded-3xl bg-gradient-primary px-6 py-14 text-center sm:px-12">
+      <section className="overflow-hidden rounded-3xl bg-blaze px-6 py-14 text-center sm:px-12">
         {campaignLabel && (
           <p className="font-display text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
             From {utmSource ?? "our campaign"} · {campaignLabel}
@@ -119,7 +119,7 @@ export function HomeContent() {
               onClick={() => setActiveCategory(null)}
               className={`rounded-full px-4 py-1.5 font-display text-xs font-semibold transition ${
                 activeCategory === null
-                  ? "bg-gradient-primary text-white"
+                  ? "bg-blaze text-white"
                   : "border border-hairline bg-white text-ink-soft hover:border-blaze"
               }`}
             >
@@ -132,7 +132,7 @@ export function HomeContent() {
                 onClick={() => setActiveCategory(cat)}
                 className={`rounded-full px-4 py-1.5 font-display text-xs font-semibold transition ${
                   activeCategory === cat
-                    ? "bg-gradient-primary text-white"
+                    ? "bg-blaze text-white"
                     : "border border-hairline bg-white text-ink-soft hover:border-blaze"
                 }`}
               >

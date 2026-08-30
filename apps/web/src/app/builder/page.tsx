@@ -60,7 +60,7 @@ function StepShell({
         {[1, 2, 3].map((n) => (
           <span
             key={n}
-            className={`h-1.5 flex-1 rounded-full ${n <= step ? "bg-gradient-primary" : "bg-hairline"}`}
+            className={`h-1.5 flex-1 rounded-full ${n <= step ? "bg-blaze" : "bg-hairline"}`}
           />
         ))}
       </div>
@@ -227,7 +227,7 @@ export default function BuilderPage() {
                 type="button"
                 onClick={() => toggleUsage(opt.value)}
                 className={`rounded-2xl border px-4 py-4 text-left font-display text-sm font-semibold transition ${
-                  selected ? "border-transparent bg-gradient-primary text-white" : "border-hairline bg-white text-ink hover:border-blaze"
+                  selected ? "border-transparent bg-blaze text-white" : "border-hairline bg-white text-ink hover:border-blaze"
                 }`}
               >
                 {opt.label}
@@ -257,7 +257,7 @@ export default function BuilderPage() {
                 type="button"
                 onClick={() => setDevices(opt.value)}
                 className={`flex items-center justify-between rounded-2xl border px-5 py-4 text-left font-display transition ${
-                  selected ? "border-transparent bg-gradient-primary text-white" : "border-hairline bg-white text-ink hover:border-blaze"
+                  selected ? "border-transparent bg-blaze text-white" : "border-hairline bg-white text-ink hover:border-blaze"
                 }`}
               >
                 <span className="text-sm font-semibold">{opt.label}</span>
@@ -288,7 +288,7 @@ export default function BuilderPage() {
               type="button"
               onClick={() => setPriority(opt.value)}
               className={`rounded-2xl border px-5 py-4 text-left font-display text-sm font-semibold transition ${
-                selected ? "border-transparent bg-gradient-primary text-white" : "border-hairline bg-white text-ink hover:border-blaze"
+                selected ? "border-transparent bg-blaze text-white" : "border-hairline bg-white text-ink hover:border-blaze"
               }`}
             >
               {opt.label}

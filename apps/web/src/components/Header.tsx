@@ -24,7 +24,7 @@ export function Header() {
             className="flex items-center gap-2 rounded-full border border-hairline bg-white px-4 py-2 font-display text-sm font-semibold text-ink transition-colors hover:border-blaze hover:text-blaze"
           >
             My Setup
-            <span className="inline-flex min-w-[1.4rem] justify-center rounded-full bg-gradient-primary px-1.5 py-0.5 text-xs font-bold text-white">
+            <span className="inline-flex min-w-[1.4rem] justify-center rounded-full bg-teal px-1.5 py-0.5 text-xs font-bold text-blaze">
               {count}
             </span>
           </Link>
