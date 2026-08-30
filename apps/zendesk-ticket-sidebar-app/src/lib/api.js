@@ -24,9 +24,12 @@ async function getApiBaseUrl(client) {
 // simply omits the key entirely, confirmed live: settings only ever
 // contained { name, apiBaseUrl, title }). The only way to use a secure
 // parameter is client.request()'s {{setting.<name>}} template syntax,
-// which Zendesk's own request-proxying layer substitutes server-side
-// before the request leaves their infrastructure -- so this has to go
-// through client.request(), not fetch().
+// substituted server-side by Zendesk's own request-proxying layer --
+// which only happens when the request actually goes through that proxy.
+// `cors: true` routes around the proxy with a direct browser call
+// instead, so the placeholder reaches our server unsubstituted, literally
+// as the string "{{setting.internalToken}}" -- confirmed live. Do not add
+// cors: true back here.
 async function request(client, path, init = {}) {
   const apiBaseUrl = await getApiBaseUrl(client)
   try {
@@ -38,8 +41,7 @@ async function request(client, path, init = {}) {
         'X-Internal-Token': '{{setting.internalToken}}',
         ...init.headers
       },
-      secure: true,
-      cors: true
+      secure: true
     })
   } catch (err) {
     // ZAF rejects non-2xx responses with a jqXHR-like object -- {status,
