@@ -63,7 +63,7 @@ export function EmailPopup() {
           ×
         </button>
         <span className="eyebrow text-blaze">Stay in the loop</span>
-        <h2 className="mt-2 font-display text-xl font-bold text-ink">What's your email?</h2>
+        <h2 className="mt-2 font-display text-xl font-bold text-ink">Enter your email</h2>
         <p className="mt-1 font-body text-sm text-ink-soft">
           We'll keep your setup saved and send you a hand if you get stuck -- no spam, just your connection.
         </p>

@@ -107,7 +107,7 @@ export default function BuilderPage() {
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
-    logEvent("started_builder", "Customer starts the Connectivity Builder");
+    logEvent("started_builder", "Customer starts Find Your Best XL Creator Package");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -120,7 +120,7 @@ export default function BuilderPage() {
     try {
       const result = await recommendPlan(usage, devices, priority);
       setRecommendation(result);
-      logEvent("completed_builder", `Customer completes the Connectivity Builder: ${result.reason}`);
+      logEvent("completed_builder", `Customer completes Find Your Best XL Creator Package: ${result.reason}`);
     } finally {
       setLoading(false);
     }

@@ -87,9 +87,9 @@ export function HomeContent() {
           </h2>
           <p className="mt-3 font-body text-sm text-ink-soft">
             XLSmart is a connectivity provider covering mobile, home fiber, family bundles, roaming,
-            and business lines under one account. Instead of scrolling a generic plan list, the
-            Connectivity Builder asks what you actually use your connection for and recommends the one
-            setup that fits -- then keeps it saved so you can activate whenever you're ready.
+            and business lines under one account. Instead of scrolling a generic plan list, Find Your
+            Best XL Creator Package asks what you actually use your connection for and recommends the
+            one setup that fits -- then keeps it saved so you can activate whenever you're ready.
           </p>
         </div>
 
