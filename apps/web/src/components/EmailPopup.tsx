@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useCartStore } from "../store/cartStore";
 import { Button } from "./Button";
 
-// Fires exactly 30 seconds after the visitor lands, once, as long as no
+// Fires exactly 10 seconds after the visitor lands, once, as long as no
 // identity has been captured yet. Submitting creates the customer's
 // activity ticket in Zendesk and flushes every interaction logged so far.
 export function EmailPopup() {
@@ -25,7 +25,7 @@ export function EmailPopup() {
       if (!useCartStore.getState().customerId && !useCartStore.getState().emailPromptDismissed) {
         setVisible(true);
       }
-    }, 30_000);
+    }, 10_000);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
