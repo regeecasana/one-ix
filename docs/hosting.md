@@ -7,7 +7,7 @@ Vercel project. There's no separate backend host and no CORS to configure
 | Piece | Where | Notes |
 |---|---|---|
 | `apps/web` (storefront + api) | **Vercel** | one project, Root Directory set to `apps/web`; every push to `main` redeploys |
-| database | **MongoDB Atlas** | same connection string for local dev and production -- no local-vs-hosted drift |
+| storage | **Bird** (app.bird.com) | one workspace for local dev and production -- see [architecture.md](architecture.md)'s "Storage: Bird CDP" |
 | email | **Ethereal** (via Nodemailer) | disposable inbox auto-created per run; the app logs a preview URL for every send |
 | Zendesk ticketing | **Zendesk trial/sandbox** | 14-day free trial; the sidebar app is uploaded into it, not hosted separately |
 | `zendesk-app` | hosted **by Zendesk** | once built and uploaded as a private app (`.zip`), Zendesk serves the sidebar app's assets itself. Local dev instead uses `zat server`, which tunnels the app from your machine |
@@ -30,26 +30,30 @@ Env vars (Project Settings → Environment Variables), same names as
 
 | var | purpose |
 |---|---|
-| `MONGODB_URI` | Atlas connection string. Named to match what Vercel's MongoDB Atlas integration auto-injects if you add that integration instead of setting it by hand |
+| `BIRD_API_KEY` / `BIRD_WORKSPACE_ID` / `BIRD_REGION` | Bird workspace credentials -- see [architecture.md](architecture.md)'s "Storage: Bird CDP" |
 | `SESSION_SECRET` | signs the per-customer session token (see [api-spec.md](api-spec.md)) -- set this explicitly in production; the random-per-process fallback used for local dev would invalidate sessions on every cold start |
 | `INTERNAL_API_TOKEN` | shared secret the Zendesk sidebar app sends as `X-Internal-Token` |
 | `ZENDESK_SUBDOMAIN` / `ZENDESK_EMAIL` / `ZENDESK_API_TOKEN` | Zendesk API auth |
 | `VOUCHER_TTL_MINUTES` | default `30`, matches the story |
 | `NEXT_PUBLIC_SITE_URL` | optional -- only needed for a custom domain; Vercel's `VERCEL_URL` covers the default `*.vercel.app` deployment automatically |
 
-## database → MongoDB Atlas
+## storage → Bird
 
-1. Create a free Atlas cluster (M0 is enough -- it's still a replica set,
-   which Prisma's MongoDB connector requires for the `$transaction` calls
-   in voucher issuance and checkout).
-2. Copy the connection string into `MONGODB_URI`, both locally
-   (`apps/web/.env` and `.env.local`) and in Vercel's project env vars.
-3. `npm run db:push --workspace=apps/web` against it once to create the
-   unique indexes (email, voucher code, cart↔order), then
-   `npm run seed --workspace=apps/web`.
+1. Create a Bird workspace + API key (Developers → API keys). Note the
+   workspace id and the key's region prefix (`bk_us1_...` → `us1`,
+   `bk_eu1_...` → `eu1`).
+2. In that workspace's dashboard, add the custom Contact attribute and
+   create the Custom Object types listed in [architecture.md](architecture.md)'s
+   "Storage: Bird CDP" section (fields/unique keys are in
+   [data-model.md](data-model.md)) -- this is manual, app code can't
+   create Custom Object *types*, only records within them.
+3. Set `BIRD_API_KEY` / `BIRD_WORKSPACE_ID` / `BIRD_REGION`, both locally
+   (`apps/web/.env.local`) and in Vercel's project env vars.
+4. `npm run seed --workspace=apps/web` to populate the demo catalog and
+   two demo customers.
 
-Using the same Atlas cluster for local dev and the hosted demo means
-there's only one database to keep schema/indexes in sync on.
+Using the same Bird workspace for local dev and the hosted demo means
+there's only one place to keep Custom Object definitions in sync.
 
 ## Zendesk
 

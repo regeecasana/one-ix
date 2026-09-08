@@ -1,21 +1,25 @@
-import type { InteractionEvent as PrismaInteractionEvent } from "@prisma/client";
-import { prisma } from "../db";
 import { addTicketComment } from "../zendesk/client";
+import { getContactById, trackEvent, type BirdEvent } from "../bird/client";
 
 // Every "customer did X" beat in docs/user-stories.md runs through here:
-// persist locally (the source of truth) and mirror to the customer's
-// active ticket as a comment (what the agent actually reads).
-export async function logInteraction(
-  customerId: string,
-  type: string,
-  detail: string
-): Promise<PrismaInteractionEvent> {
-  const event = await prisma.interactionEvent.create({ data: { customerId, type, detail } });
+// track it as a Bird contact event (the source of truth -- see
+// docs/architecture.md) and mirror it to the customer's active ticket as a
+// comment (what the agent actually reads).
+export async function logInteraction(customerId: string, type: string, detail: string): Promise<BirdEvent> {
+  const event = await trackEvent({ contactId: customerId, eventName: type, properties: { detail } });
 
-  const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+  const customer = await getContactById(customerId);
   if (customer?.activeTicketId) {
     await addTicketComment(customer.activeTicketId, detail);
   }
 
-  return event;
+  return (
+    event ?? {
+      id: crypto.randomUUID(),
+      contactId: customerId,
+      eventName: type,
+      properties: { detail },
+      createdAt: new Date().toISOString(),
+    }
+  );
 }

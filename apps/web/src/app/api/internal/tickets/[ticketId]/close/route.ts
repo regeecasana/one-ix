@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { findLatest } from "@/lib/bird/objects";
+import type { BirdActivityTicket } from "@/lib/bird/types";
 import { closeTicket } from "@/lib/zendesk/client";
+import { getContactById, upsertContact } from "@/lib/bird/client";
 import { requireInternalAuth, handleError } from "@/lib/apiHelpers";
 
 export async function POST(req: Request, { params }: { params: { ticketId: string } }) {
@@ -9,10 +11,17 @@ export async function POST(req: Request, { params }: { params: { ticketId: strin
 
   try {
     await closeTicket(params.ticketId);
-    await prisma.customer.updateMany({
-      where: { activeTicketId: params.ticketId },
-      data: { activeTicketId: null },
-    });
+
+    const activityTicket = await findLatest<BirdActivityTicket>("activity_tickets", [
+      { attribute: "ticketId", operator: "string/equals", value: params.ticketId },
+    ]);
+    if (activityTicket) {
+      const customer = await getContactById(activityTicket.customerId);
+      if (customer?.activeTicketId === params.ticketId) {
+        await upsertContact({ email: customer.email, activeTicketId: null });
+      }
+    }
+
     return NextResponse.json({ closed: true });
   } catch (err) {
     return handleError(err);

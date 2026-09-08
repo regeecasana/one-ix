@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { findLatest } from "@/lib/bird/objects";
+import type { BirdVoucher } from "@/lib/bird/types";
 import { HttpError } from "@/lib/errors";
 import { serializeVoucher } from "@/lib/serializers";
 import { checkRateLimit, rateLimitResponse, handleError } from "@/lib/apiHelpers";
@@ -16,12 +17,14 @@ export async function GET(req: Request, { params }: { params: { code: string } }
     const productId = url.searchParams.get("productId") ?? "";
     if (!customerId || !productId) throw new HttpError(400, "customer_and_product_required");
 
-    const voucher = await prisma.voucher.findUnique({ where: { code: params.code } });
+    const voucher = await findLatest<BirdVoucher>("vouchers", [
+      { attribute: "code", operator: "string/equals", value: params.code },
+    ]);
 
     if (!voucher || voucher.customerId !== customerId || voucher.productId !== productId) {
       return NextResponse.json({ valid: false, reason: "not_found" });
     }
-    if (voucher.status !== "active" || voucher.expiresAt.getTime() <= Date.now()) {
+    if (voucher.status !== "active" || new Date(voucher.expiresAt).getTime() <= Date.now()) {
       return NextResponse.json({ valid: false, reason: voucher.status === "redeemed" ? "redeemed" : "expired" });
     }
 

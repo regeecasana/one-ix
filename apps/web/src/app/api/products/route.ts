@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { searchObjects } from "@/lib/bird/objects";
+import type { BirdProduct } from "@/lib/bird/types";
 import { serializeProduct } from "@/lib/serializers";
 import { handleError } from "@/lib/apiHelpers";
 
@@ -10,7 +11,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const products = await prisma.product.findMany({ orderBy: { name: "asc" } });
+    const products = await searchObjects<BirdProduct>("products", [], 1000);
+    products.sort((a, b) => a.name.localeCompare(b.name));
     return NextResponse.json(products.map(serializeProduct));
   } catch (err) {
     return handleError(err);

@@ -1,6 +1,6 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { upsertContact, trackEvent } from "../src/lib/bird/client";
+import { createObject, deleteObject, searchObjects } from "../src/lib/bird/objects";
+import type { BirdCart, BirdOrder, BirdProduct, BirdVoucher } from "../src/lib/bird/types";
 
 // imageUrl is intentionally blank -- the storefront renders a line-art
 // ProductIcon per product id instead of photography.
@@ -243,21 +243,23 @@ const products = [
   },
 ];
 
-async function main() {
-  // Demo data only -- reset dependent tables so a reseed always leaves a
-  // clean catalog rather than mixing in whatever a previous run left behind
-  // (they'd reference product ids that no longer exist).
-  await prisma.orderItem.deleteMany();
-  await prisma.order.deleteMany();
-  await prisma.cartItem.deleteMany();
-  await prisma.voucher.deleteMany();
-  await prisma.interactionEvent.deleteMany();
-  await prisma.supportTicket.deleteMany();
-  await prisma.cart.deleteMany();
-  await prisma.customer.deleteMany();
-  await prisma.product.deleteMany();
+async function resetObjectType(objectName: string) {
+  const existing = await searchObjects<{ id: string }>(objectName, [], 1000);
+  for (const record of existing) {
+    await deleteObject(objectName, record.id);
+  }
+}
 
-  await prisma.product.createMany({ data: products });
+async function main() {
+  // Demo data only -- reset dependent objects so a reseed always leaves a
+  // clean catalog rather than mixing in whatever a previous run left behind.
+  for (const objectName of ["orders", "carts", "vouchers", "support_tickets", "activity_tickets", "products"]) {
+    await resetObjectType(objectName);
+  }
+
+  for (const p of products) {
+    await createObject<BirdProduct>("products", p);
+  }
   console.log(`Seeded ${products.length} products.`);
 
   const now = Date.now();
@@ -266,125 +268,118 @@ async function main() {
 
   // Demo customer #1 -- already activated, exercises the Zendesk sidebar
   // app's "service resolution" flow (see docs/zendesk-app.md).
-  const activated = await prisma.customer.create({
-    data: {
-      email: "regee.casana@concentrix.com",
-      name: "Regee Casana",
-      createdAt: daysAgo(3),
-    },
-  });
+  const activated = await upsertContact({ email: "regee.casana@concentrix.com", name: "Regee Casana" });
+  if (!activated) throw new Error("failed to create demo contact 'activated' -- check BIRD_API_KEY/BIRD_WORKSPACE_ID");
 
-  const activatedCart = await prisma.cart.create({
-    data: {
-      customerId: activated.id,
-      status: "converted",
-      recommendationReason: "Recommended based on high upload/streaming activity during the builder session.",
-      lastActivityAt: daysAgo(2),
-      createdAt: daysAgo(2),
-    },
-  });
-  await prisma.cartItem.createMany({
-    data: [
-      { cartId: activatedCart.id, productId: "plan-creator", quantity: 1, unitPriceCents: 199000 },
-      { cartId: activatedCart.id, productId: "addon-satu-fiber-boost", quantity: 1, unitPriceCents: 49000 },
+  const activatedCart = await createObject<BirdCart>("carts", {
+    customerId: activated.id,
+    status: "converted",
+    recommendationReason: "Recommended based on high upload/streaming activity during the builder session.",
+    items: [
+      { id: crypto.randomUUID(), productId: "plan-creator", quantity: 1, unitPriceCents: 199000 },
+      { id: crypto.randomUUID(), productId: "addon-satu-fiber-boost", quantity: 1, unitPriceCents: 49000 },
     ],
+    utmSource: null,
+    utmCampaign: null,
+    utmContent: null,
+    lastActivityAt: daysAgo(2).toISOString(),
+    createdAt: daysAgo(2).toISOString(),
+    updatedAt: daysAgo(2).toISOString(),
+  });
+  if (!activatedCart) throw new Error("failed to create demo cart");
+
+  const activatedVoucher = await createObject<BirdVoucher>("vouchers", {
+    code: "CREATOR10-DEMO",
+    customerId: activated.id,
+    productId: "plan-creator",
+    percentOff: 10,
+    status: "redeemed",
+    expiresAt: daysAgo(1).toISOString(),
+    issuedBy: "agent",
+    resendCount: 0,
+    zendeskTicketId: null,
+    createdAt: daysAgo(2).toISOString(),
+  });
+  if (!activatedVoucher) throw new Error("failed to create demo voucher");
+
+  await createObject<BirdOrder>("orders", {
+    cartId: activatedCart.id,
+    customerId: activated.id,
+    status: "paid",
+    subtotalCents: 248000,
+    discountCents: 24800,
+    totalCents: 223200,
+    voucherId: activatedVoucher.id,
+    createdAt: daysAgo(2).toISOString(),
+    items: activatedCart.items,
   });
 
-  const activatedVoucher = await prisma.voucher.create({
-    data: {
-      code: "CREATOR10-DEMO",
-      customerId: activated.id,
-      productId: "plan-creator",
-      percentOff: 10,
-      status: "redeemed",
-      expiresAt: daysAgo(1),
-      issuedBy: "agent",
-      resendCount: 0,
-      createdAt: daysAgo(2),
-    },
+  await trackEvent({
+    contactId: activated.id,
+    eventName: "activated",
+    properties: { detail: "Activated XL Creator Package" },
+    timestamp: daysAgo(2),
   });
-
-  await prisma.order.create({
-    data: {
-      cartId: activatedCart.id,
-      customerId: activated.id,
-      status: "paid",
-      subtotalCents: 248000,
-      discountCents: 24800,
-      totalCents: 223200,
-      voucherId: activatedVoucher.id,
-      createdAt: daysAgo(2),
-    },
+  await trackEvent({
+    contactId: activated.id,
+    eventName: "viewed_page",
+    properties: { detail: "Visited Help & Support page" },
+    timestamp: hoursAgo(3),
   });
-
-  await prisma.interactionEvent.createMany({
-    data: [
-      {
-        customerId: activated.id,
-        type: "activated",
-        detail: "Activated XL Creator Package",
-        createdAt: daysAgo(2),
-      },
-      {
-        customerId: activated.id,
-        type: "viewed_page",
-        detail: "Visited Help & Support page",
-        createdAt: hoursAgo(3),
-      },
-      {
-        customerId: activated.id,
-        type: "reopened_setup",
-        detail: "Re-opened saved Creator Setup",
-        createdAt: hoursAgo(3),
-      },
-      {
-        customerId: activated.id,
-        type: "redeemed_voucher",
-        detail: "Applied 10% Creator Activation Discount",
-        createdAt: daysAgo(2),
-      },
-    ],
+  await trackEvent({
+    contactId: activated.id,
+    eventName: "reopened_setup",
+    properties: { detail: "Re-opened saved Creator Setup" },
+    timestamp: hoursAgo(3),
+  });
+  await trackEvent({
+    contactId: activated.id,
+    eventName: "redeemed_voucher",
+    properties: { detail: "Applied 10% Creator Activation Discount" },
+    timestamp: daysAgo(2),
   });
 
   // Demo customer #2 -- saved a setup but hasn't activated, exercises the
   // sidebar app's "marketing campaign" flow.
-  const prospect = await prisma.customer.create({
-    data: {
-      email: "demo.marketing@example.com",
-      name: "Maria Demo",
-      createdAt: daysAgo(1),
-    },
+  const prospect = await upsertContact({ email: "demo.marketing@example.com", name: "Maria Demo" });
+  if (!prospect) throw new Error("failed to create demo contact 'prospect'");
+
+  await createObject<BirdCart>("carts", {
+    customerId: prospect.id,
+    status: "active",
+    recommendationReason: "Based on browsing GoSurf Xtra twice this week.",
+    items: [{ id: crypto.randomUUID(), productId: "plan-gosurf-xtra", quantity: 1, unitPriceCents: 129000 }],
+    utmSource: null,
+    utmCampaign: null,
+    utmContent: null,
+    lastActivityAt: hoursAgo(1).toISOString(),
+    createdAt: hoursAgo(4).toISOString(),
+    updatedAt: hoursAgo(1).toISOString(),
   });
 
-  const prospectCart = await prisma.cart.create({
-    data: {
-      customerId: prospect.id,
-      status: "active",
-      recommendationReason: "Based on browsing GoSurf Xtra twice this week.",
-      lastActivityAt: hoursAgo(1),
-      createdAt: hoursAgo(4),
-    },
+  await trackEvent({
+    contactId: prospect.id,
+    eventName: "viewed_product",
+    properties: { detail: "Viewed GoSurf Xtra" },
+    timestamp: hoursAgo(4),
   });
-  await prisma.cartItem.createMany({
-    data: [{ cartId: prospectCart.id, productId: "plan-gosurf-xtra", quantity: 1, unitPriceCents: 129000 }],
+  await trackEvent({
+    contactId: prospect.id,
+    eventName: "saved_setup",
+    properties: { detail: "Saved setup to My Setup" },
+    timestamp: hoursAgo(2),
   });
-
-  await prisma.interactionEvent.createMany({
-    data: [
-      { customerId: prospect.id, type: "viewed_product", detail: "Viewed GoSurf Xtra", createdAt: hoursAgo(4) },
-      { customerId: prospect.id, type: "saved_setup", detail: "Saved setup to My Setup", createdAt: hoursAgo(2) },
-      { customerId: prospect.id, type: "closed_tab", detail: "Left checkout without paying", createdAt: hoursAgo(1) },
-    ],
+  await trackEvent({
+    contactId: prospect.id,
+    eventName: "closed_tab",
+    properties: { detail: "Left checkout without paying" },
+    timestamp: hoursAgo(1),
   });
 
   console.log(`Seeded 2 demo customers: ${activated.email} (activated), ${prospect.email} (prospect).`);
 }
 
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch((err) => {
+  console.error(err);
+  process.exitCode = 1;
+});

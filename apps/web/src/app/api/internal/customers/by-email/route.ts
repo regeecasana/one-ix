@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { getContactByEmail } from "@/lib/bird/client";
 import { HttpError } from "@/lib/errors";
 import { buildCustomerProfile } from "@/lib/services/profileService";
 import { requireInternalAuth, handleError } from "@/lib/apiHelpers";
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     const email = (url.searchParams.get("email") ?? "").trim().toLowerCase();
     if (!email) throw new HttpError(400, "email_required");
 
-    const customer = await prisma.customer.findUnique({ where: { email } });
+    const customer = await getContactByEmail(email);
     if (!customer) throw new HttpError(404, "customer_not_found");
 
     const profile = await buildCustomerProfile(customer.id);

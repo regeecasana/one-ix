@@ -1,4 +1,6 @@
-import { prisma } from "../db";
+import { getContactById, listEventsForContact } from "../bird/client";
+import { findLatest, getObject } from "../bird/objects";
+import type { BirdCart, BirdOrder, BirdProduct, BirdVoucher } from "../bird/types";
 import { HttpError } from "../errors";
 import { serializeCart, serializeCustomer, serializeInteractionEvent, serializeOrder, serializeProduct, serializeVoucher } from "../serializers";
 import type { CustomerProfile } from "@oneix/shared";
@@ -7,48 +9,44 @@ const RECENT_EVENTS_LIMIT = 20;
 
 // What the sidebar app renders, and what gets folded into a standalone
 // support ticket's body (see services/supportService.ts) so an agent
-// never has to ask who someone is.
+// never has to ask who someone is. customerId is a Bird contact id --
+// every other lookup here is a Bird Custom Object search/get keyed on it
+// (see docs/architecture.md).
 export async function buildCustomerProfile(customerId: string): Promise<CustomerProfile> {
-  const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+  const customer = await getContactById(customerId);
   if (!customer) throw new HttpError(404, "customer_not_found");
 
-  const latestCartRow = await prisma.cart.findFirst({
-    where: { customerId },
-    orderBy: { createdAt: "desc" },
-    include: { items: true },
-  });
+  const latestCartRow = await findLatest<BirdCart>("carts", [
+    { attribute: "customerId", operator: "string/equals", value: customerId },
+  ]);
 
   let latestCart: CustomerProfile["latestCart"] = null;
   if (latestCartRow) {
     const productIds = [...new Set(latestCartRow.items.map((i) => i.productId))];
-    const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
+    const products = await Promise.all(productIds.map((id) => getObject<BirdProduct>("products", id)));
     latestCart = {
       ...serializeCart(latestCartRow),
-      products: Object.fromEntries(products.map((p) => [p.id, serializeProduct(p)])),
+      products: Object.fromEntries(
+        products.filter((p): p is BirdProduct => p !== null).map((p) => [p.id, serializeProduct(p)])
+      ),
     };
   }
 
-  const latestOrderRow = await prisma.order.findFirst({
-    where: { customerId },
-    orderBy: { createdAt: "desc" },
-  });
+  const latestOrderRow = await findLatest<BirdOrder>("orders", [
+    { attribute: "customerId", operator: "string/equals", value: customerId },
+  ]);
 
-  const latestVoucherRow = await prisma.voucher.findFirst({
-    where: { customerId },
-    orderBy: { createdAt: "desc" },
-  });
+  const latestVoucherRow = await findLatest<BirdVoucher>("vouchers", [
+    { attribute: "customerId", operator: "string/equals", value: customerId },
+  ]);
   // Checked live against expiresAt, not just the status column -- same
   // reasoning as every earlier version of this endpoint.
   const activeVoucher =
-    latestVoucherRow && latestVoucherRow.status === "active" && latestVoucherRow.expiresAt.getTime() > Date.now()
+    latestVoucherRow && latestVoucherRow.status === "active" && new Date(latestVoucherRow.expiresAt).getTime() > Date.now()
       ? serializeVoucher(latestVoucherRow)
       : null;
 
-  const recentEventRows = await prisma.interactionEvent.findMany({
-    where: { customerId },
-    orderBy: { createdAt: "desc" },
-    take: RECENT_EVENTS_LIMIT,
-  });
+  const recentEventRows = await listEventsForContact(customerId, RECENT_EVENTS_LIMIT);
 
   return {
     customer: serializeCustomer(customer),

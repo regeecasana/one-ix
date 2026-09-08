@@ -46,7 +46,7 @@ what's simulated.
 ```
 apps/
   web/            Next.js app — storefront (App Router) + API (Route Handlers)
-                  in one deployable unit. Prisma + MongoDB Atlas.
+                  in one deployable unit. Storage is Bird (app.bird.com).
   zendesk-app/    Zendesk ticket sidebar app (ZAF v2 + React) — hosted by
                   Zendesk itself, stays a separate deploy regardless of
                   what apps/web is built with.
@@ -59,8 +59,8 @@ docs/             Architecture, data model, API spec, and demo runbook
 
 | Layer | Choice | Hosted on |
 |---|---|---|
-| storefront + api | Next.js (App Router + Route Handlers), TypeScript, Tailwind, Zustand, Prisma | **Vercel** — one project, one deploy |
-| database | MongoDB (Atlas) | **MongoDB Atlas** — same connection string for local dev and production |
+| storefront + api | Next.js (App Router + Route Handlers), TypeScript, Tailwind, Zustand | **Vercel** — one project, one deploy |
+| storage | Bird (app.bird.com) CDP | **Bird** — one workspace for local dev and production |
 | email | Nodemailer + Ethereal (disposable inbox, preview URL logged to console) | Ethereal itself — no hosting needed |
 | zendesk-app | Zendesk Apps Framework (ZAF) v2 + React | hosted **by Zendesk** once uploaded as a private app — no separate host |
 | Zendesk ticketing | Zendesk REST API | Zendesk trial/sandbox instance |
@@ -84,26 +84,33 @@ Each app has its own README. The full design lives in `docs/`:
 
 ## Status
 
-`apps/web` is fully implemented, deployed, and verified end to end in a
-real browser against MongoDB Atlas: landing → 30s email identification
-(opens a Zendesk ticket) → Connectivity Builder → recommended plan →
-save/activate, with every interaction mirrored to the ticket as a comment,
-plus agent-issued voucher redemption at checkout, as described in
+`apps/web`'s storage was migrated from MongoDB/Prisma to Bird (see
+[docs/architecture.md](docs/architecture.md)'s "Storage: Bird CDP"
+section) -- the code is written and type-checks, but has **not yet been
+verified against a live Bird workspace** (no credentials were available
+during the migration). Before relying on this, create the Custom Object
+types Bird requires, set real `BIRD_*` env vars, run the seed script, and
+exercise the full flow -- landing → 30s email identification (opens a
+Zendesk ticket) → Connectivity Builder → recommended plan → save/activate,
+with every interaction mirrored to the ticket as a comment, plus
+agent-issued voucher redemption at checkout, as described in
 [docs/user-stories.md](docs/user-stories.md). No accounts/signup — identity
 is resolved by email only.
-`apps/zendesk-app` is implemented and verified against the deployed API
-(profile view, voucher issue/resend, find-by-email search, AI insight,
-close ticket) -- not yet installed against a live Zendesk trial instance,
-which is the one remaining manual step. See
-[docs/roadmap.md](docs/roadmap.md).
+`apps/zendesk-app` is implemented and was verified against the previous
+Prisma-backed API (profile view, voucher issue/resend, find-by-email
+search, AI insight, close ticket) -- it calls the same `/api/internal/*`
+routes unchanged, but re-verify it once the Bird-backed API is confirmed
+working, and it's also not yet installed against a live Zendesk trial
+instance. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Quick start
 
 ```
 npm install
-cp apps/web/.env.example apps/web/.env.local   # MongoDB Atlas connection string, Zendesk credentials, etc.
+cp apps/web/.env.example apps/web/.env.local   # Bird workspace credentials, Zendesk credentials, etc.
+npm run seed --workspace=apps/web
 npm run dev:web
 ```
 
 Full local setup is in [docs/demo-setup.md](docs/demo-setup.md); deploying
-to Vercel + MongoDB Atlas is in [docs/hosting.md](docs/hosting.md).
+to Vercel + Bird is in [docs/hosting.md](docs/hosting.md).

@@ -46,4 +46,15 @@ export const env = {
   },
   voucherTtlMinutes: num("VOUCHER_TTL_MINUTES", 30),
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
+  // Bird (app.bird.com) CDP -- see docs/architecture.md for the customer
+  // identity/interaction-event migration this powers. Optional for now:
+  // the Bird client no-ops (with a warning) until these are set, so the
+  // Prisma-backed paths keep working while we don't have live credentials.
+  bird: {
+    apiKey: process.env.BIRD_API_KEY ?? "",
+    workspaceId: process.env.BIRD_WORKSPACE_ID ?? "",
+    // Bird API keys are region-locked (bk_us1_... only works against the
+    // us1 host, bk_eu1_... only against eu1) -- must match the key's region.
+    region: process.env.BIRD_REGION || "us1",
+  },
 };

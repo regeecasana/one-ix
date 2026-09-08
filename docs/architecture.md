@@ -10,7 +10,7 @@ recovers it with a time-limited voucher, sent from a custom **ticket
 sidebar app**.
 
 Everything is real except money movement: activation produces a genuine
-order record in the database, but no payment processor is involved. See
+order record, but no payment processor is involved. See
 [user-stories.md](user-stories.md) for the full script.
 
 ## Components
@@ -20,9 +20,11 @@ order record in the database, but no payment processor is involved. See
 │              apps/web             │  REST  │    zendesk-app       │
 │  Next.js -- storefront (App        │◄──────►│ (ZAF sidebar, React) │
 │  Router) + api (Route Handlers)      │        │ shown inside the      │
-│  in one deploy. Prisma → MongoDB       │        │  Zendesk ticket view   │
-│  Atlas.                                  │        └────────────────────┘
-└───────────────┬─────────────────┘                 ▲
+│  in one deploy. All storage is       │        │  Zendesk ticket view   │
+│  Bird (Contacts API + Custom           │        └────────────────────┘
+│  Objects) -- see "Storage: Bird CDP"     │                 ▲
+│  below.                                    │                 │
+└───────────────┬─────────────────┘                 │
                  │ Zendesk REST API                    │
                  │ (create ticket, add comment)         │
                  ▼                                       │
@@ -50,10 +52,12 @@ order record in the database, but no payment processor is involved. See
 
 ## Why this shape
 
-- **One app, one database, one deploy.** The storefront and its API used
+- **One app, one deploy, storage in Bird.** The storefront and its API used
   to be two separate services (Express + Vite) on two hosts, needing CORS
   and two sets of env vars. Folding them into one Next.js app removes both
-  -- same origin, one Vercel project, one `MONGODB_URI`.
+  -- same origin, one Vercel project. Storage moved from MongoDB/Prisma to
+  Bird (app.bird.com) so customer data lives in a real CDP instead of an
+  app-owned database -- see "Storage: Bird CDP" below.
 - **The interaction log is the product, not a side feature.** Every
   `InteractionEvent` is both persisted locally (so the app has a source of
   truth independent of Zendesk) and mirrored to the customer's ticket as a
@@ -81,13 +85,62 @@ order record in the database, but no payment processor is involved. See
 | Layer | Choice | Why |
 |---|---|---|
 | storefront + api | Next.js (App Router client components + Route Handlers), TypeScript, Tailwind, Zustand | one framework, one deploy; Route Handlers replace Express routes 1:1 with no separate server process |
-| database | MongoDB, hosted on **Atlas** | one connection string for local dev and hosted; Prisma's Mongo connector keeps the same query API used everywhere else in the codebase (see [hosting.md](hosting.md)) |
+| storage | Bird (app.bird.com) CDP -- Contacts API + Custom Objects | customer identity/events live in a real CDP instead of an app-owned database; see "Storage: Bird CDP" below |
 | email | Nodemailer + Ethereal (auto-provisioned test SMTP, preview URL logged to console) behind an `EmailProvider` interface | lets the demo "receive" real-looking email with zero account setup and zero hosting cost; swappable for Resend/SendGrid by implementing the same interface |
 | zendesk-app | Zendesk Apps Framework (ZAF) v2 + React, built/served via Zendesk Apps Tools (ZAT) | standard way to ship a ticket sidebar app; Zendesk hosts the built assets itself once uploaded, so this layer needs no hosting of its own |
 | Zendesk API access | Zendesk REST API via API token (email/token auth), called only from `apps/web`'s server side | keeps the Zendesk credential server-side; the sidebar app never talks to Zendesk's admin API directly, only to `apps/web`'s internal API |
 
 Visual design follows the brief's own mockups closely: a purple-to-pink
 gradient system, rounded/pill UI (Plus Jakarta Sans).
+
+## Storage: Bird CDP
+
+This app used to store everything in MongoDB via Prisma. That's gone --
+Bird (app.bird.com) is now the only datastore, in two parts:
+
+- **Contacts API** (`apps/web/src/lib/bird/client.ts`) -- `Customer` and
+  `InteractionEvent` map onto Bird Contacts and their event stream. A
+  Bird contact's own `id` is the canonical `customerId` used everywhere
+  else in the app (there's no separate app-generated id to bridge to).
+- **Custom Objects** (`apps/web/src/lib/bird/objects.ts`) -- everything
+  else (`Product`, `Cart`, `Order`, `Voucher`, `SupportTicket`) is a Bird
+  Custom Object, created via the dashboard's Schema Explorer, not
+  something app code can bootstrap. `CartItem`/`OrderItem` are embedded
+  as a JSON array attribute on their parent object rather than a separate
+  object -- Bird's Custom Object search API doesn't support joins, and
+  array-valued attributes are supported.
+
+**One-time setup required before this app can run for real:** create the
+Custom Object types `products`, `carts`, `orders`, `vouchers`,
+`support_tickets`, `activity_tickets` in the Bird dashboard, and add a
+custom Contact attribute `activeTicketId`. Field lists and declared
+unique keys are in [data-model.md](data-model.md). `activity_tickets` is
+not one of the entities the previous MongoDB schema had -- it exists
+solely to bridge a Zendesk ticket id back to a Bird contact id, because
+the Contacts API only supports lookup by a declared identifier
+(email/externalId), not by an arbitrary attribute like `activeTicketId`,
+while Custom Objects do support attribute search.
+
+**Known trade-off -- no cross-record transactions.** Two flows used to run
+inside a `prisma.$transaction`: checkout (create order, decrement stock,
+convert cart, redeem voucher) and voucher issuance (expire old active
+vouchers, then create the new one). Bird's Custom Objects API has no
+confirmed atomic increment or multi-record transaction, so both are now a
+best-effort **saga** -- sequential writes, with checkout attempting to
+compensate (re-increment already-decremented stock) if a later step
+fails. This leaves a small, accepted race/partial-failure window that
+didn't exist before, appropriate for this app's demo traffic level but
+worth knowing about (`orderService.ts`, `voucherService.ts`).
+
+**Unverified assumptions, flagged as TODOs in code.** Bird's API reference
+pages for Contacts and Custom Objects render client-side and couldn't be
+fully confirmed while building this against a workspace-less dev
+environment. The endpoint paths/request shapes in `bird/client.ts` and
+`bird/objects.ts` are the best inference from Bird's documented resource
+model and public search results, not a verified integration -- exercise
+the seed script and the full storefront → identify → checkout → voucher
+flow against a real workspace before trusting this in production, and fix
+whatever assumption turns out wrong.
 
 See [data-model.md](data-model.md) for entities, [api-spec.md](api-spec.md) for
 endpoints, [zendesk-app.md](zendesk-app.md) for the sidebar app design, and

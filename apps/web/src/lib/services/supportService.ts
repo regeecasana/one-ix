@@ -1,7 +1,8 @@
-import type { SupportTicket as PrismaSupportTicket } from "@prisma/client";
-import { prisma } from "../db";
 import { buildCustomerProfile, profileToTicketContext } from "./profileService";
 import { createTicket } from "../zendesk/client";
+import { upsertContact } from "../bird/client";
+import { createObject } from "../bird/objects";
+import type { BirdSupportTicket } from "../bird/types";
 
 // A standalone contact-support flow, separate from the per-customer
 // activity ticket the email popup creates -- not yet reconciled with it
@@ -12,12 +13,9 @@ export async function submitSupportTicket(params: {
   email: string;
   subject: string;
   message: string;
-}): Promise<PrismaSupportTicket> {
-  const customer = await prisma.customer.upsert({
-    where: { email: params.email },
-    update: {},
-    create: { email: params.email },
-  });
+}): Promise<BirdSupportTicket> {
+  const customer = await upsertContact({ email: params.email });
+  if (!customer) throw new Error(`[support] failed to upsert Bird contact for ${params.email}`);
 
   const profile = await buildCustomerProfile(customer.id);
   const body = [params.message, ``, `--- Unified Profile ---`, profileToTicketContext(profile)].join("\n");
@@ -30,12 +28,13 @@ export async function submitSupportTicket(params: {
     tags: ["customer_submitted", "contact_form"],
   });
 
-  return prisma.supportTicket.create({
-    data: {
-      customerId: customer.id,
-      zendeskTicketId,
-      subject: params.subject,
-      message: params.message,
-    },
+  const ticket = await createObject<BirdSupportTicket>("support_tickets", {
+    customerId: customer.id,
+    zendeskTicketId,
+    subject: params.subject,
+    message: params.message,
+    createdAt: new Date().toISOString(),
   });
+  if (!ticket) throw new Error(`[support] failed to create support ticket object for ${params.email}`);
+  return ticket;
 }

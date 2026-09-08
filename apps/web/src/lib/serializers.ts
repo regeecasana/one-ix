@@ -1,13 +1,6 @@
-import type {
-  Cart as PrismaCart,
-  CartItem as PrismaCartItem,
-  Customer as PrismaCustomer,
-  InteractionEvent as PrismaInteractionEvent,
-  Order as PrismaOrder,
-  Product as PrismaProduct,
-  SupportTicket as PrismaSupportTicket,
-  Voucher as PrismaVoucher,
-} from "@prisma/client";
+import type { BirdCart, BirdCartItem, BirdOrder, BirdProduct, BirdSupportTicket, BirdVoucher } from "./bird/types";
+import type { BirdContact } from "./bird/client";
+import type { BirdEvent } from "./bird/client";
 import type {
   Cart,
   CartItem,
@@ -19,7 +12,7 @@ import type {
   Voucher,
 } from "@oneix/shared";
 
-export function serializeProduct(p: PrismaProduct): Product {
+export function serializeProduct(p: BirdProduct): Product {
   return {
     id: p.id,
     name: p.name,
@@ -30,33 +23,33 @@ export function serializeProduct(p: PrismaProduct): Product {
   };
 }
 
-export function serializeCartItem(i: PrismaCartItem): CartItem {
+export function serializeCartItem(i: BirdCartItem, cartId: string): CartItem {
   return {
     id: i.id,
-    cartId: i.cartId,
+    cartId,
     productId: i.productId,
     quantity: i.quantity,
     unitPriceCents: i.unitPriceCents,
   };
 }
 
-export function serializeCart(c: PrismaCart & { items: PrismaCartItem[] }): Cart {
+export function serializeCart(c: BirdCart): Cart {
   return {
     id: c.id,
     customerId: c.customerId,
     status: c.status as Cart["status"],
-    items: c.items.map(serializeCartItem),
+    items: c.items.map((i) => serializeCartItem(i, c.id)),
     utmSource: c.utmSource,
     utmCampaign: c.utmCampaign,
     utmContent: c.utmContent,
     recommendationReason: c.recommendationReason,
-    lastActivityAt: c.lastActivityAt.toISOString(),
-    createdAt: c.createdAt.toISOString(),
-    updatedAt: c.updatedAt.toISOString(),
+    lastActivityAt: c.lastActivityAt,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
   };
 }
 
-export function serializeOrder(o: PrismaOrder): Order {
+export function serializeOrder(o: BirdOrder): Order {
   return {
     id: o.id,
     cartId: o.cartId,
@@ -66,21 +59,21 @@ export function serializeOrder(o: PrismaOrder): Order {
     discountCents: o.discountCents,
     totalCents: o.totalCents,
     voucherId: o.voucherId,
-    createdAt: o.createdAt.toISOString(),
+    createdAt: o.createdAt,
   };
 }
 
-export function serializeCustomer(c: PrismaCustomer): Customer {
+export function serializeCustomer(c: BirdContact): Customer {
   return {
     id: c.id,
     email: c.email,
     name: c.name,
     activeTicketId: c.activeTicketId,
-    createdAt: c.createdAt.toISOString(),
+    createdAt: c.createdAt,
   };
 }
 
-export function serializeVoucher(v: PrismaVoucher): Voucher {
+export function serializeVoucher(v: BirdVoucher): Voucher {
   return {
     id: v.id,
     code: v.code,
@@ -88,31 +81,31 @@ export function serializeVoucher(v: PrismaVoucher): Voucher {
     productId: v.productId,
     percentOff: v.percentOff,
     status: v.status as Voucher["status"],
-    expiresAt: v.expiresAt.toISOString(),
+    expiresAt: v.expiresAt,
     issuedBy: "agent",
     resendCount: v.resendCount,
     zendeskTicketId: v.zendeskTicketId,
-    createdAt: v.createdAt.toISOString(),
+    createdAt: v.createdAt,
   };
 }
 
-export function serializeInteractionEvent(e: PrismaInteractionEvent): InteractionEvent {
+export function serializeInteractionEvent(e: BirdEvent): InteractionEvent {
   return {
     id: e.id,
-    customerId: e.customerId,
-    type: e.type,
-    detail: e.detail,
-    createdAt: e.createdAt.toISOString(),
+    customerId: e.contactId,
+    type: e.eventName,
+    detail: (e.properties?.detail as string) ?? "",
+    createdAt: e.createdAt,
   };
 }
 
-export function serializeSupportTicket(t: PrismaSupportTicket): SupportTicket {
+export function serializeSupportTicket(t: BirdSupportTicket): SupportTicket {
   return {
     id: t.id,
     customerId: t.customerId,
     zendeskTicketId: t.zendeskTicketId,
     subject: t.subject,
     message: t.message,
-    createdAt: t.createdAt.toISOString(),
+    createdAt: t.createdAt,
   };
 }

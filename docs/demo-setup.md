@@ -1,8 +1,8 @@
 # Running the Demo
 
-This covers **local dev**. To run the hosted version (Vercel + MongoDB
-Atlas), see [hosting.md](hosting.md) -- the env vars are the same either
-way, since local dev and production point at the same Atlas cluster.
+This covers **local dev**. To run the hosted version (Vercel + Bird), see
+[hosting.md](hosting.md) -- the env vars are the same either way, since
+local dev and production point at the same Bird workspace.
 
 `apps/zendesk-app` is developed separately (via `zat server` against a real
 Zendesk trial instance) -- it isn't part of `apps/web`'s dev server.
@@ -10,9 +10,10 @@ Zendesk trial instance) -- it isn't part of `apps/web`'s dev server.
 ## Prerequisites
 
 - Node.js 20+
-- A free [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) cluster (M0 is
-  fine -- it's still a replica set, which Prisma's Mongo connector needs
-  for `$transaction`).
+- A [Bird](https://app.bird.com) workspace + API key, with the Custom
+  Object types and Contact attribute from
+  [architecture.md](architecture.md)'s "Storage: Bird CDP" section
+  already created in the dashboard.
 - A Zendesk trial/sandbox account with an API token and the Zendesk Apps
   Tools CLI: `npm install -g @zendesk/zendesk-apps-tools`.
 
@@ -21,16 +22,14 @@ Zendesk trial instance) -- it isn't part of `apps/web`'s dev server.
 ```
 npm install
 cp apps/web/.env.example apps/web/.env.local
-cp apps/web/.env.example apps/web/.env        # Prisma CLI reads .env, not .env.local
-npm run db:push --workspace=apps/web
 npm run seed --workspace=apps/web
 ```
 
-Fill in `apps/web/.env.local` (and `.env`, same values):
+Fill in `apps/web/.env.local`:
 
 | var | purpose |
 |---|---|
-| `MONGODB_URI` | Atlas connection string |
+| `BIRD_API_KEY` / `BIRD_WORKSPACE_ID` / `BIRD_REGION` | Bird workspace credentials |
 | `ZENDESK_SUBDOMAIN` / `ZENDESK_EMAIL` / `ZENDESK_API_TOKEN` | Zendesk API auth |
 | `INTERNAL_API_TOKEN` | shared secret the Zendesk app sends as `X-Internal-Token` |
 | `SESSION_SECRET` | signs per-customer session tokens -- set this so sessions survive a dev-server restart (see [api-spec.md](api-spec.md)) |
@@ -70,10 +69,12 @@ npm run dev:zendesk-app     # zat server, see below
 
 ## Seed data
 
-`apps/web` ships a seed script (`npm run seed --workspace=apps/web`) that
-wipes the demo collections and loads a small catalog of demo plans/add-ons
-named to match real XL product conventions (e.g. `GoSurf799`). Safe to
-re-run any time you want a clean slate -- but note it deletes every
-Customer/Cart/Order/Voucher/InteractionEvent in whatever `MONGODB_URI`
-points at, so double-check that variable before running it against
-anything other than a disposable dev/demo cluster.
+`apps/web` ships a seed script (`npm run seed --workspace=apps/web`, source
+at `apps/web/scripts/seedBird.ts`) that wipes the demo Custom Object
+records and loads a small catalog of demo plans/add-ons named to match
+real XL product conventions (e.g. `GoSurf799`). Safe to re-run any time
+you want a clean slate -- but note it deletes every Product/Cart/Order/
+Voucher/SupportTicket record (and re-upserts the two demo Contacts) in
+whatever `BIRD_WORKSPACE_ID` points at, so double-check that variable
+before running it against anything other than a disposable dev/demo
+workspace.
