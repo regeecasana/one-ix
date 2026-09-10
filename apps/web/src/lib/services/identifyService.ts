@@ -45,7 +45,7 @@ export async function identifyCustomer(
     });
     if (ticketId) {
       customer = (await upsertContact({ email, activeTicketId: ticketId })) ?? customer;
-      await createObject<BirdActivityTicket>("activity_tickets", {
+      await createObject<BirdActivityTicket>("activityTickets", {
         ticketId,
         customerId: customer.id,
         createdAt: new Date().toISOString(),

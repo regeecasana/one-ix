@@ -1,6 +1,6 @@
 import { getContactById, listEventsForContact } from "../bird/client";
-import { findLatest, getObject } from "../bird/objects";
-import type { BirdCart, BirdOrder, BirdProduct, BirdVoucher } from "../bird/types";
+import { findLatest, getProductBySlug, searchObjects } from "../bird/objects";
+import type { BirdCart, BirdCartItem, BirdOrder, BirdProduct, BirdVoucher } from "../bird/types";
 import { HttpError } from "../errors";
 import { serializeCart, serializeCustomer, serializeInteractionEvent, serializeOrder, serializeProduct, serializeVoucher } from "../serializers";
 import type { CustomerProfile } from "@oneix/shared";
@@ -22,12 +22,15 @@ export async function buildCustomerProfile(customerId: string): Promise<Customer
 
   let latestCart: CustomerProfile["latestCart"] = null;
   if (latestCartRow) {
-    const productIds = [...new Set(latestCartRow.items.map((i) => i.productId))];
-    const products = await Promise.all(productIds.map((id) => getObject<BirdProduct>("products", id)));
+    const cartItems = await searchObjects<BirdCartItem>("cartItems", [
+      { attribute: "cartId", operator: "string/equals", value: latestCartRow.id },
+    ]);
+    const productIds = [...new Set(cartItems.map((i) => i.productId))];
+    const products = await Promise.all(productIds.map((slug) => getProductBySlug(slug)));
     latestCart = {
-      ...serializeCart(latestCartRow),
+      ...serializeCart(latestCartRow, cartItems),
       products: Object.fromEntries(
-        products.filter((p): p is BirdProduct => p !== null).map((p) => [p.id, serializeProduct(p)])
+        products.filter((p): p is BirdProduct => p !== null).map((p) => [p.slug, serializeProduct(p)])
       ),
     };
   }

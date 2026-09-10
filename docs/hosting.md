@@ -30,7 +30,7 @@ Env vars (Project Settings → Environment Variables), same names as
 
 | var | purpose |
 |---|---|
-| `BIRD_API_KEY` / `BIRD_WORKSPACE_ID` / `BIRD_REGION` | Bird workspace credentials -- see [architecture.md](architecture.md)'s "Storage: Bird CDP" |
+| `BIRD_API_KEY` / `BIRD_WORKSPACE_ID` | Bird workspace credentials -- see [architecture.md](architecture.md)'s "Storage: Bird CDP" |
 | `SESSION_SECRET` | signs the per-customer session token (see [api-spec.md](api-spec.md)) -- set this explicitly in production; the random-per-process fallback used for local dev would invalidate sessions on every cold start |
 | `INTERNAL_API_TOKEN` | shared secret the Zendesk sidebar app sends as `X-Internal-Token` |
 | `ZENDESK_SUBDOMAIN` / `ZENDESK_EMAIL` / `ZENDESK_API_TOKEN` | Zendesk API auth |
@@ -39,15 +39,18 @@ Env vars (Project Settings → Environment Variables), same names as
 
 ## storage → Bird
 
-1. Create a Bird workspace + API key (Developers → API keys). Note the
-   workspace id and the key's region prefix (`bk_us1_...` → `us1`,
-   `bk_eu1_...` → `eu1`).
+1. Create a Bird workspace + access key (Team → Access keys in the Bird
+   dashboard -- called "Access keys" in the UI, referred to as "API keys"
+   in some of Bird's docs). Note the workspace id (find it on the
+   workspace's own settings page, not the organization/workspaces list --
+   see [architecture.md](architecture.md)'s "Storage: Bird CDP" for why
+   that distinction matters).
 2. In that workspace's dashboard, add the custom Contact attribute and
    create the Custom Object types listed in [architecture.md](architecture.md)'s
    "Storage: Bird CDP" section (fields/unique keys are in
    [data-model.md](data-model.md)) -- this is manual, app code can't
    create Custom Object *types*, only records within them.
-3. Set `BIRD_API_KEY` / `BIRD_WORKSPACE_ID` / `BIRD_REGION`, both locally
+3. Set `BIRD_API_KEY` / `BIRD_WORKSPACE_ID`, both locally
    (`apps/web/.env.local`) and in Vercel's project env vars.
 4. `npm run seed --workspace=apps/web` to populate the demo catalog and
    two demo customers.

@@ -5,8 +5,8 @@ import { etherealEmailProvider } from "../email/ethereal";
 import { voucherEmail } from "../email/templates";
 import { addTicketComment } from "../zendesk/client";
 import { getContactById } from "../bird/client";
-import { createObject, getObject, searchObjects, updateObject } from "../bird/objects";
-import type { BirdProduct, BirdVoucher } from "../bird/types";
+import { createObject, getObject, getProductBySlug, searchObjects, updateObject } from "../bird/objects";
+import type { BirdVoucher } from "../bird/types";
 
 // The agent's one-click recovery action -- see docs/user-stories.md.
 // Always explicit, never automatic. "At most one active voucher per
@@ -23,7 +23,7 @@ export async function issueVoucher(params: {
 }): Promise<BirdVoucher> {
   const customer = await getContactById(params.customerId);
   if (!customer) throw new HttpError(404, "customer_not_found");
-  const product = await getObject<BirdProduct>("products", params.productId);
+  const product = await getProductBySlug(params.productId);
   if (!product) throw new HttpError(404, "product_not_found");
 
   const percentOff = params.percentOff ?? 20;
@@ -33,7 +33,7 @@ export async function issueVoucher(params: {
 
   const activeVouchers = await searchObjects<BirdVoucher>("vouchers", [
     { attribute: "customerId", operator: "string/equals", value: customer.id },
-    { attribute: "productId", operator: "string/equals", value: product.id },
+    { attribute: "productId", operator: "string/equals", value: product.slug },
     { attribute: "status", operator: "string/equals", value: "active" },
   ]);
   for (const v of activeVouchers) {
@@ -43,14 +43,13 @@ export async function issueVoucher(params: {
   const voucher = await createObject<BirdVoucher>("vouchers", {
     code,
     customerId: customer.id,
-    productId: product.id,
+    productId: product.slug,
     percentOff,
     status: "active",
     expiresAt: expiresAt.toISOString(),
     issuedBy: "agent",
     resendCount: 0,
     zendeskTicketId: customer.activeTicketId,
-    createdAt: new Date().toISOString(),
   });
   if (!voucher) throw new HttpError(502, "voucher_creation_failed");
 
@@ -81,7 +80,7 @@ export async function resendVoucher(voucherId: string, ttlMinutes?: number): Pro
 
   const [customer, product] = await Promise.all([
     getContactById(voucher.customerId),
-    getObject<BirdProduct>("products", voucher.productId),
+    getProductBySlug(voucher.productId),
   ]);
   if (!customer) throw new HttpError(404, "customer_not_found");
   if (!product) throw new HttpError(404, "product_not_found");

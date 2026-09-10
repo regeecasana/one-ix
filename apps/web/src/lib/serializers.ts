@@ -12,9 +12,11 @@ import type {
   Voucher,
 } from "@oneix/shared";
 
+// Wire id is the stable slug, not Bird's own record id -- see the note on
+// BirdProduct in ./bird/types.ts.
 export function serializeProduct(p: BirdProduct): Product {
   return {
-    id: p.id,
+    id: p.slug,
     name: p.name,
     description: p.description,
     priceCents: p.priceCents,
@@ -23,22 +25,26 @@ export function serializeProduct(p: BirdProduct): Product {
   };
 }
 
-export function serializeCartItem(i: BirdCartItem, cartId: string): CartItem {
+export function serializeCartItem(i: BirdCartItem): CartItem {
   return {
     id: i.id,
-    cartId,
+    cartId: i.cartId,
     productId: i.productId,
     quantity: i.quantity,
     unitPriceCents: i.unitPriceCents,
   };
 }
 
-export function serializeCart(c: BirdCart): Cart {
+// items is fetched separately (searchObjects("cartItems", ...)) -- Bird's
+// Custom Objects have no array/JSON attribute type, so CartItem can't be
+// embedded on Cart the way the migration originally assumed. See
+// docs/architecture.md.
+export function serializeCart(c: BirdCart, items: BirdCartItem[]): Cart {
   return {
     id: c.id,
     customerId: c.customerId,
     status: c.status as Cart["status"],
-    items: c.items.map((i) => serializeCartItem(i, c.id)),
+    items: items.map(serializeCartItem),
     utmSource: c.utmSource,
     utmCampaign: c.utmCampaign,
     utmContent: c.utmContent,

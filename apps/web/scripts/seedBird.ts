@@ -1,6 +1,6 @@
 import { upsertContact, trackEvent } from "../src/lib/bird/client";
 import { createObject, deleteObject, searchObjects } from "../src/lib/bird/objects";
-import type { BirdCart, BirdOrder, BirdProduct, BirdVoucher } from "../src/lib/bird/types";
+import type { BirdCart, BirdCartItem, BirdOrder, BirdOrderItem, BirdProduct, BirdVoucher } from "../src/lib/bird/types";
 
 // imageUrl is intentionally blank -- the storefront renders a line-art
 // ProductIcon per product id instead of photography.
@@ -243,8 +243,10 @@ const products = [
   },
 ];
 
+// searchObjects's limit maxes at 100 with no pagination (see
+// src/lib/bird/objects.ts) -- fine for this app's demo-scale data.
 async function resetObjectType(objectName: string) {
-  const existing = await searchObjects<{ id: string }>(objectName, [], 1000);
+  const existing = await searchObjects<{ id: string }>(objectName, [], 100);
   for (const record of existing) {
     await deleteObject(objectName, record.id);
   }
@@ -253,14 +255,32 @@ async function resetObjectType(objectName: string) {
 async function main() {
   // Demo data only -- reset dependent objects so a reseed always leaves a
   // clean catalog rather than mixing in whatever a previous run left behind.
-  for (const objectName of ["orders", "carts", "vouchers", "support_tickets", "activity_tickets", "products"]) {
+  for (const objectName of [
+    "orderItems",
+    "orders",
+    "cartItems",
+    "carts",
+    "vouchers",
+    "supportTickets",
+    "activityTickets",
+    "products",
+  ]) {
     await resetObjectType(objectName);
   }
 
+  let seededProducts = 0;
   for (const p of products) {
-    await createObject<BirdProduct>("products", p);
+    // Bird auto-assigns `id` and rejects a client-supplied one -- `slug`
+    // is the stable, human-readable id the rest of this app hardcodes
+    // (see the note on BirdProduct in src/lib/bird/types.ts).
+    const { id: slug, ...rest } = p;
+    const created = await createObject<BirdProduct>("products", { slug, ...rest });
+    if (created) seededProducts++;
   }
-  console.log(`Seeded ${products.length} products.`);
+  if (seededProducts !== products.length) {
+    throw new Error(`Only seeded ${seededProducts}/${products.length} products -- check the [bird] error logs above.`);
+  }
+  console.log(`Seeded ${seededProducts} products.`);
 
   const now = Date.now();
   const hoursAgo = (h: number) => new Date(now - h * 60 * 60 * 1000);
@@ -271,22 +291,32 @@ async function main() {
   const activated = await upsertContact({ email: "regee.casana@concentrix.com", name: "Regee Casana" });
   if (!activated) throw new Error("failed to create demo contact 'activated' -- check BIRD_API_KEY/BIRD_WORKSPACE_ID");
 
+  // Note: createdAt/updatedAt below are stripped before sending (Bird
+  // assigns these itself -- see objects.ts's toBody) so the demo's
+  // "2 days ago" framing no longer actually back-dates these records the
+  // way the original Prisma seed did; every record will show a real
+  // "now" createdAt instead. Kept here for readability of the intended
+  // story, not because it has any effect.
   const activatedCart = await createObject<BirdCart>("carts", {
     customerId: activated.id,
     status: "converted",
     recommendationReason: "Recommended based on high upload/streaming activity during the builder session.",
-    items: [
-      { id: crypto.randomUUID(), productId: "plan-creator", quantity: 1, unitPriceCents: 199000 },
-      { id: crypto.randomUUID(), productId: "addon-satu-fiber-boost", quantity: 1, unitPriceCents: 49000 },
-    ],
     utmSource: null,
     utmCampaign: null,
     utmContent: null,
     lastActivityAt: daysAgo(2).toISOString(),
-    createdAt: daysAgo(2).toISOString(),
-    updatedAt: daysAgo(2).toISOString(),
   });
   if (!activatedCart) throw new Error("failed to create demo cart");
+
+  const activatedCartItems: BirdCartItem[] = [];
+  for (const item of [
+    { productId: "plan-creator", quantity: 1, unitPriceCents: 199000 },
+    { productId: "addon-satu-fiber-boost", quantity: 1, unitPriceCents: 49000 },
+  ]) {
+    const created = await createObject<BirdCartItem>("cartItems", { cartId: activatedCart.id, ...item });
+    if (!created) throw new Error("failed to create demo cart item");
+    activatedCartItems.push(created);
+  }
 
   const activatedVoucher = await createObject<BirdVoucher>("vouchers", {
     code: "CREATOR10-DEMO",
@@ -298,11 +328,10 @@ async function main() {
     issuedBy: "agent",
     resendCount: 0,
     zendeskTicketId: null,
-    createdAt: daysAgo(2).toISOString(),
   });
   if (!activatedVoucher) throw new Error("failed to create demo voucher");
 
-  await createObject<BirdOrder>("orders", {
+  const activatedOrder = await createObject<BirdOrder>("orders", {
     cartId: activatedCart.id,
     customerId: activated.id,
     status: "paid",
@@ -310,9 +339,17 @@ async function main() {
     discountCents: 24800,
     totalCents: 223200,
     voucherId: activatedVoucher.id,
-    createdAt: daysAgo(2).toISOString(),
-    items: activatedCart.items,
   });
+  if (!activatedOrder) throw new Error("failed to create demo order");
+
+  for (const item of activatedCartItems) {
+    await createObject<BirdOrderItem>("orderItems", {
+      orderId: activatedOrder.id,
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPriceCents: item.unitPriceCents,
+    });
+  }
 
   await trackEvent({
     contactId: activated.id,
@@ -344,17 +381,21 @@ async function main() {
   const prospect = await upsertContact({ email: "demo.marketing@example.com", name: "Maria Demo" });
   if (!prospect) throw new Error("failed to create demo contact 'prospect'");
 
-  await createObject<BirdCart>("carts", {
+  const prospectCart = await createObject<BirdCart>("carts", {
     customerId: prospect.id,
     status: "active",
     recommendationReason: "Based on browsing GoSurf Xtra twice this week.",
-    items: [{ id: crypto.randomUUID(), productId: "plan-gosurf-xtra", quantity: 1, unitPriceCents: 129000 }],
     utmSource: null,
     utmCampaign: null,
     utmContent: null,
     lastActivityAt: hoursAgo(1).toISOString(),
-    createdAt: hoursAgo(4).toISOString(),
-    updatedAt: hoursAgo(1).toISOString(),
+  });
+  if (!prospectCart) throw new Error("failed to create demo cart");
+  await createObject<BirdCartItem>("cartItems", {
+    cartId: prospectCart.id,
+    productId: "plan-gosurf-xtra",
+    quantity: 1,
+    unitPriceCents: 129000,
   });
 
   await trackEvent({

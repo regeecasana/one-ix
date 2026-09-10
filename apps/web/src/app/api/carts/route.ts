@@ -11,17 +11,14 @@ export async function POST(req: Request) {
     const cart = await createObject<BirdCart>("carts", {
       customerId: null,
       status: "active",
-      items: [],
       utmSource: body?.utmSource ? String(body.utmSource) : null,
       utmCampaign: body?.utmCampaign ? String(body.utmCampaign) : null,
       utmContent: body?.utmContent ? String(body.utmContent) : null,
       recommendationReason: null,
       lastActivityAt: now,
-      createdAt: now,
-      updatedAt: now,
     });
     if (!cart) throw new Error("cart_creation_failed");
-    return NextResponse.json(serializeCart(cart), { status: 201 });
+    return NextResponse.json(serializeCart(cart, []), { status: 201 });
   } catch (err) {
     return handleError(err);
   }

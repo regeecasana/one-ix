@@ -7,13 +7,23 @@ import { env } from "../env";
 // (logs + returns null/void) exactly like ../zendesk/client.ts does for
 // the same reason.
 //
-// Endpoint shapes below follow Bird's documented resource model (workspace-
-// scoped contacts addressed by identifier, e.g. email; a contact event
-// stream keyed to a contact) but have NOT been verified against a live
-// workspace or Bird's OpenAPI spec -- docs.bird.com's API reference pages
-// are client-rendered and couldn't be fully confirmed during research.
-// TODO: once BIRD_API_KEY/BIRD_WORKSPACE_ID are available, verify these
-// paths and request bodies against a real workspace before relying on them.
+// Host + auth + Contacts wire shape confirmed empirically against a live
+// workspace (2026-09) via `POST /workspaces/{id}/contacts`:
+// - https://api.bird.com, `Authorization: AccessKey <key>` (NOT
+//   platform.bird.com, NOT Bearer -- see the note in ../bird/objects.ts).
+// - The email identifier's key is `"emailaddress"`, not `"email"`.
+// - Creating a contact requires a top-level `displayName` field.
+// - The response has `attributes` FLAT at the top level (unlike Custom
+//   Object records, which nest custom fields under `body`) plus
+//   `featuredIdentifiers` (not `identifiers`) and top-level `createdAt`/
+//   `updatedAt` strings.
+// Also confirmed: a second create for an already-used identifier gets a
+// `409 ResourceAlreadyExists`, so upsertContact falls back to
+// `PATCH /contacts/identifiers/emailaddress/{email}` in that case (also
+// confirmed working, 200, and does update the contact's attributes).
+// And: Bird does NOT URL-decode identifier path segments -- an
+// encodeURIComponent'd email (e.g. "%40" for "@") gets rejected as "not a
+// valid email address". The email must go into these URLs raw.
 //
 // Bird's own contact `id` is the canonical "customerId" everywhere else in
 // this app (carts, orders, vouchers, support tickets all store it as a
@@ -41,25 +51,61 @@ function isConfigured(): boolean {
 }
 
 function baseUrl(): string {
-  return `https://${env.bird.region}.platform.bird.com/v1`;
+  return `https://api.bird.com`;
 }
 
 function authHeader(): string {
-  return `Bearer ${env.bird.apiKey}`;
+  return `AccessKey ${env.bird.apiKey}`;
 }
 
-function contactFromResponse(
-  data: { id: string; identifiers?: { key: string; value: string }[]; attributes?: Record<string, unknown> },
-  fallbackEmail?: string
-): BirdContact {
-  const email = data.identifiers?.find((i) => i.key === "email")?.value ?? fallbackEmail ?? "";
+type ContactResponse = {
+  id: string;
+  featuredIdentifiers?: { key: string; value: string }[];
+  attributes?: Record<string, unknown>;
+  createdAt?: string;
+};
+
+function contactFromResponse(data: ContactResponse, fallbackEmail?: string): BirdContact {
+  const email = data.featuredIdentifiers?.find((i) => i.key === "emailaddress")?.value ?? fallbackEmail ?? "";
   return {
     id: data.id,
     email,
     name: (data.attributes?.firstName as string) ?? null,
     activeTicketId: (data.attributes?.activeTicketId as string) ?? null,
-    createdAt: (data.attributes?.createdAt as string) ?? new Date().toISOString(),
+    createdAt: data.createdAt ?? new Date().toISOString(),
   };
+}
+
+function contactAttributes(params: { name?: string; activeTicketId?: string | null }): Record<string, unknown> {
+  return {
+    ...(params.name ? { firstName: params.name } : {}),
+    ...(params.activeTicketId !== undefined ? { activeTicketId: params.activeTicketId } : {}),
+  };
+}
+
+async function updateContactByEmail(params: {
+  email: string;
+  name?: string;
+  activeTicketId?: string | null;
+}): Promise<BirdContact | null> {
+  const url = `${baseUrl()}/workspaces/${env.bird.workspaceId}/contacts/identifiers/emailaddress/${params.email}`;
+  console.log(`[bird] updateContactByEmail -> PATCH ${url}`);
+
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: { Authorization: authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ attributes: contactAttributes(params) }),
+  });
+
+  console.log(`[bird] updateContactByEmail <- ${res.status}`);
+
+  if (!res.ok) {
+    console.error(`[bird] updateContactByEmail failed: ${res.status} ${await res.text()}`);
+    return null;
+  }
+
+  const data = (await res.json()) as ContactResponse;
+  return contactFromResponse(data, params.email);
 }
 
 export async function upsertContact(params: {
@@ -72,34 +118,32 @@ export async function upsertContact(params: {
     return null;
   }
 
-  const url = `${baseUrl()}/workspaces/${env.bird.workspaceId}/contacts/identifiers/email/${encodeURIComponent(params.email)}`;
-  console.log(`[bird] upsertContact -> PATCH ${url}`);
+  const url = `${baseUrl()}/workspaces/${env.bird.workspaceId}/contacts`;
+  console.log(`[bird] upsertContact -> POST ${url}`);
 
   try {
     const res = await fetch(url, {
-      method: "PATCH",
+      method: "POST",
       headers: { Authorization: authHeader(), "Content-Type": "application/json" },
       body: JSON.stringify({
-        identifiers: [{ key: "email", value: params.email }],
-        attributes: {
-          ...(params.name ? { firstName: params.name } : {}),
-          ...(params.activeTicketId !== undefined ? { activeTicketId: params.activeTicketId } : {}),
-        },
+        displayName: params.name || params.email,
+        identifiers: [{ key: "emailaddress", value: params.email }],
+        attributes: contactAttributes(params),
       }),
     });
 
     console.log(`[bird] upsertContact <- ${res.status}`);
+
+    if (res.status === 409) {
+      return await updateContactByEmail(params);
+    }
 
     if (!res.ok) {
       console.error(`[bird] upsertContact failed: ${res.status} ${await res.text()}`);
       return null;
     }
 
-    const data = (await res.json()) as {
-      id: string;
-      identifiers?: { key: string; value: string }[];
-      attributes?: Record<string, unknown>;
-    };
+    const data = (await res.json()) as ContactResponse;
     return contactFromResponse(data, params.email);
   } catch (err) {
     console.error("[bird] upsertContact error", err);
@@ -110,7 +154,7 @@ export async function upsertContact(params: {
 export async function getContactByEmail(email: string): Promise<BirdContact | null> {
   if (!isConfigured()) return null;
 
-  const url = `${baseUrl()}/workspaces/${env.bird.workspaceId}/contacts/identifiers/email/${encodeURIComponent(email)}`;
+  const url = `${baseUrl()}/workspaces/${env.bird.workspaceId}/contacts/identifiers/emailaddress/${email}`;
 
   try {
     const res = await fetch(url, { headers: { Authorization: authHeader() } });
@@ -120,11 +164,7 @@ export async function getContactByEmail(email: string): Promise<BirdContact | nu
       }
       return null;
     }
-    const data = (await res.json()) as {
-      id: string;
-      identifiers?: { key: string; value: string }[];
-      attributes?: Record<string, unknown>;
-    };
+    const data = (await res.json()) as ContactResponse;
     return contactFromResponse(data, email);
   } catch (err) {
     console.error("[bird] getContactByEmail error", err);
@@ -145,11 +185,7 @@ export async function getContactById(contactId: string): Promise<BirdContact | n
       }
       return null;
     }
-    const data = (await res.json()) as {
-      id: string;
-      identifiers?: { key: string; value: string }[];
-      attributes?: Record<string, unknown>;
-    };
+    const data = (await res.json()) as ContactResponse;
     return contactFromResponse(data);
   } catch (err) {
     console.error("[bird] getContactById error", err);

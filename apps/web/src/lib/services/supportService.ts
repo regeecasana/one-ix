@@ -28,7 +28,7 @@ export async function submitSupportTicket(params: {
     tags: ["customer_submitted", "contact_form"],
   });
 
-  const ticket = await createObject<BirdSupportTicket>("support_tickets", {
+  const ticket = await createObject<BirdSupportTicket>("supportTickets", {
     customerId: customer.id,
     zendeskTicketId,
     subject: params.subject,

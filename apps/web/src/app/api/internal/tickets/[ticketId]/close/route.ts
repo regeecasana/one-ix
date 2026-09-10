@@ -12,7 +12,7 @@ export async function POST(req: Request, { params }: { params: { ticketId: strin
   try {
     await closeTicket(params.ticketId);
 
-    const activityTicket = await findLatest<BirdActivityTicket>("activity_tickets", [
+    const activityTicket = await findLatest<BirdActivityTicket>("activityTickets", [
       { attribute: "ticketId", operator: "string/equals", value: params.ticketId },
     ]);
     if (activityTicket) {

@@ -29,7 +29,7 @@ Fill in `apps/web/.env.local`:
 
 | var | purpose |
 |---|---|
-| `BIRD_API_KEY` / `BIRD_WORKSPACE_ID` / `BIRD_REGION` | Bird workspace credentials |
+| `BIRD_API_KEY` / `BIRD_WORKSPACE_ID` | Bird workspace credentials |
 | `ZENDESK_SUBDOMAIN` / `ZENDESK_EMAIL` / `ZENDESK_API_TOKEN` | Zendesk API auth |
 | `INTERNAL_API_TOKEN` | shared secret the Zendesk app sends as `X-Internal-Token` |
 | `SESSION_SECRET` | signs per-customer session tokens -- set this so sessions survive a dev-server restart (see [api-spec.md](api-spec.md)) |

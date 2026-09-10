@@ -132,15 +132,41 @@ fails. This leaves a small, accepted race/partial-failure window that
 didn't exist before, appropriate for this app's demo traffic level but
 worth knowing about (`orderService.ts`, `voucherService.ts`).
 
-**Unverified assumptions, flagged as TODOs in code.** Bird's API reference
-pages for Contacts and Custom Objects render client-side and couldn't be
-fully confirmed while building this against a workspace-less dev
-environment. The endpoint paths/request shapes in `bird/client.ts` and
-`bird/objects.ts` are the best inference from Bird's documented resource
-model and public search results, not a verified integration -- exercise
-the seed script and the full storefront → identify → checkout → voucher
-flow against a real workspace before trusting this in production, and fix
-whatever assumption turns out wrong.
+**API basics confirmed empirically (2026-09) against a live workspace --
+public docs were unreliable/contradictory for this:**
+- Host is `https://api.bird.com` for both Contacts and Custom Objects --
+  **not** `{region}.platform.bird.com`, which is a different, unrelated
+  Bird API surface that happens to also exist and also returns
+  plausible-looking errors.
+- Auth header is `Authorization: AccessKey <key>` -- **not** `Bearer`.
+  Confirmed by testing against real endpoints: a wrong path/id gives a
+  generic `401 Unauthorized`, while a request that authenticates but lacks
+  permission for that specific action gives a distinct `403
+  FORBIDDEN_INTERNAL` -- that difference is what confirmed the scheme was
+  right before the URL shape was fully nailed down.
+- Data-storage **region (EU/US)**, set once per workspace at creation, is
+  a data-residency setting, not part of the API host -- don't confuse it
+  with routing.
+- The dashboard calls this credential type an **"Access key"** (Team →
+  Access keys, attached to named policies), not "API key" as most public
+  Bird docs call it -- same feature, different label in the actual product.
+- A Custom Object record's custom fields live nested under a `body` key,
+  not flat at the top level (e.g. a field named `name` is really
+  `body.name`); `id`, `createdAt`, `updatedAt`, `indexedAt` are
+  system-provided on every record and aren't set by app code.
+  `bird/objects.ts`'s `toBody`/`fromRecord` handle this mapping.
+- Per-attribute **uniqueness isn't a property of the attribute** -- it's
+  declared on the object's separate **Identifiers** tab in the dashboard
+  (`orders.cartId`, `vouchers.code`, `activity_tickets.ticketId` all need
+  to be added there, not just created as a plain attribute).
+
+**Still unverified:** the exact `search` endpoint's request/response shape
+(`ObjectFilter` in `bird/objects.ts`) and Contacts' own wire shape
+(whether it also nests under `body`, or uses a distinct `identifiers`
+array as originally assumed) -- confirm these the same way the above was
+confirmed (real requests against the live workspace, reading the actual
+error/response bodies) before trusting `bird/client.ts` or the `search`
+path in `bird/objects.ts`.
 
 See [data-model.md](data-model.md) for entities, [api-spec.md](api-spec.md) for
 endpoints, [zendesk-app.md](zendesk-app.md) for the sidebar app design, and
