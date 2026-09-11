@@ -193,6 +193,30 @@ export async function getContactById(contactId: string): Promise<BirdContact | n
   }
 }
 
+// Contact event tracking is a completely separate mechanism from the rest
+// of this file -- confirmed empirically (2026-09) against a live
+// workspace. It's not part of the Contacts REST API at all (that gave a
+// blanket 403 with a fully-privileged AccessKey, which was the tell that
+// it needed a different credential entirely, not a permission fix). It's
+// Bird's client-SDK tracking pipeline instead:
+// - Auth is `X-Bird-Write-Key: <writeKey>`, not the workspace AccessKey.
+//   Get the write key from Developer -> Applications -> your app -> Event
+//   Tracking (must be toggled ON -- off gives an all-zeros placeholder
+//   key) -> fetch the app's `data-config-url` (from "Bird SDK Code
+//   Snippet") and read `tracking.writeKey`/`tracking.endpoint` from the
+//   JSON it returns.
+// - The endpoint is a different host per region, e.g.
+//   `https://capture.eu-west-1.nest.messagebird.com/tracking/track`
+//   (legacy messagebird.com domain, not api.bird.com or platform.bird.com).
+// - Confirmed working (200 "ok") with `X-Bird-Workspace-Id`,
+//   `X-Bird-Event-Name`, `X-Bird-Sdk-Version: 0.0.1` headers and a body
+//   of `{ identifiers: [{ key, value }], properties }`.
+// NOT yet confirmed: `listEventsForContact` below (GET
+// /contacts/{id}/events on api.bird.com -- no longer 403 once tracking
+// was enabled, but returns an empty result even a while after a
+// successful track call) -- either an indexing delay, or events tracked
+// this way land somewhere `listEventsForContact`'s endpoint doesn't read
+// from. Re-verify once you can watch it over a longer window.
 export async function trackEvent(params: {
   contactId: string;
   eventName: string;
@@ -201,18 +225,25 @@ export async function trackEvent(params: {
 }): Promise<BirdEvent | null> {
   const createdAt = (params.timestamp ?? new Date()).toISOString();
 
-  if (!isConfigured()) {
-    console.warn(`[bird] not configured -- skipping trackEvent ${params.eventName}`);
+  if (!env.bird.trackingWriteKey || !env.bird.trackingEndpoint) {
+    console.warn(`[bird] tracking not configured -- skipping trackEvent ${params.eventName}`);
     return null;
   }
 
-  const url = `${baseUrl()}/workspaces/${env.bird.workspaceId}/contacts/${params.contactId}/events`;
-
   try {
-    const res = await fetch(url, {
+    const res = await fetch(env.bird.trackingEndpoint, {
       method: "POST",
-      headers: { Authorization: authHeader(), "Content-Type": "application/json" },
-      body: JSON.stringify({ name: params.eventName, properties: params.properties ?? {}, createdAt }),
+      headers: {
+        "X-Bird-Write-Key": env.bird.trackingWriteKey,
+        "X-Bird-Workspace-Id": env.bird.workspaceId,
+        "X-Bird-Event-Name": params.eventName,
+        "X-Bird-Sdk-Version": "0.0.1",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        identifiers: [{ key: "id", value: params.contactId }],
+        properties: params.properties ?? {},
+      }),
     });
 
     if (!res.ok) {
@@ -220,8 +251,7 @@ export async function trackEvent(params: {
       return null;
     }
 
-    const data = (await res.json()) as { id: string };
-    return { id: data.id, contactId: params.contactId, eventName: params.eventName, properties: params.properties, createdAt };
+    return { id: crypto.randomUUID(), contactId: params.contactId, eventName: params.eventName, properties: params.properties, createdAt };
   } catch (err) {
     console.error("[bird] trackEvent error", err);
     return null;

@@ -54,5 +54,19 @@ export const env = {
   bird: {
     apiKey: process.env.BIRD_API_KEY ?? "",
     workspaceId: process.env.BIRD_WORKSPACE_ID ?? "",
+    // Contact event tracking is a completely separate mechanism from the
+    // Contacts/Custom Objects REST API above -- see docs/architecture.md.
+    // This is a Bird "Application"'s tracking write key (Developer ->
+    // Applications -> your app -> Event Tracking, must be toggled on to
+    // get a real key instead of an all-zeros placeholder), not the
+    // workspace AccessKey. It's meant to be safe to expose client-side
+    // (it's what ships in a public website's <script> tag), so it's a
+    // lower-sensitivity credential than BIRD_API_KEY.
+    trackingWriteKey: process.env.BIRD_TRACKING_WRITE_KEY ?? "",
+    // Region-specific capture host that goes with the write key above --
+    // read it from the application's config JSON (fetch the
+    // `data-config-url` from Developer -> Applications -> your app ->
+    // Bird SDK Code Snippet) rather than assuming a region.
+    trackingEndpoint: process.env.BIRD_TRACKING_ENDPOINT ?? "",
   },
 };
