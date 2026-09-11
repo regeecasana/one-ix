@@ -1,4 +1,5 @@
 import { env } from "../env";
+import { createObject, searchObjects } from "./objects";
 
 // Bird (app.bird.com) is the CDP backing customer identity + interaction
 // events -- see docs/architecture.md for the migration this replaced
@@ -225,94 +226,70 @@ export async function getContactById(contactId: string): Promise<BirdContact | n
   }
 }
 
-// Contact event tracking is a completely separate mechanism from the rest
-// of this file -- confirmed empirically (2026-09) against a live
-// workspace. It's not part of the Contacts REST API at all (that gave a
-// blanket 403 with a fully-privileged AccessKey, which was the tell that
-// it needed a different credential entirely, not a permission fix). It's
-// Bird's client-SDK tracking pipeline instead:
-// - Auth is `X-Bird-Write-Key: <writeKey>`, not the workspace AccessKey.
-//   Get the write key from Developer -> Applications -> your app -> Event
-//   Tracking (must be toggled ON -- off gives an all-zeros placeholder
-//   key) -> fetch the app's `data-config-url` (from "Bird SDK Code
-//   Snippet") and read `tracking.writeKey`/`tracking.endpoint` from the
-//   JSON it returns.
-// - The endpoint is a different host per region, e.g.
-//   `https://capture.eu-west-1.nest.messagebird.com/tracking/track`
-//   (legacy messagebird.com domain, not api.bird.com or platform.bird.com).
-// - Confirmed working (200 "ok") with `X-Bird-Workspace-Id`,
-//   `X-Bird-Event-Name`, `X-Bird-Sdk-Version: 0.0.1` headers and a body
-//   of `{ identifiers: [{ key, value }], properties }`.
-// NOT yet confirmed: `listEventsForContact` below (GET
-// /contacts/{id}/events on api.bird.com -- no longer 403 once tracking
-// was enabled, but returns an empty result even a while after a
-// successful track call) -- either an indexing delay, or events tracked
-// this way land somewhere `listEventsForContact`'s endpoint doesn't read
-// from. Re-verify once you can watch it over a longer window.
+// Contact event tracking (Bird's client-SDK "track events" feature, with
+// its own Application/write-key credential and a separate
+// capture.{region}.nest.messagebird.com host) is DEAD infrastructure for
+// this workspace -- confirmed empirically (2026-09): every request to
+// the write endpoint, including garbage auth, malformed JSON, wrong HTTP
+// method, and a nonexistent path, returned an *identical* generic
+// `200 OK` / "ok" / `Server: awselb/2.0` response. That's a bare AWS load
+// balancer default action, not a real backend -- nothing tracked this
+// way ever appeared in the contact's Events tab in the Bird dashboard
+// itself, at any date range, confirming it wasn't a read-side or
+// indexing-delay problem. Not something fixable from this codebase.
+//
+// So interaction events are instead stored the same way every other
+// non-Contact entity in this app is: as a Custom Object
+// (`interactionEvent`, fields contactId/type/detail -- see
+// docs/architecture.md), using the same createObject/searchObjects
+// client already proven reliable for products/carts/orders/vouchers.
+// `id` and `createdAt` are Bird-assigned per the usual Custom Object
+// rules (see bird/objects.ts).
+
+interface BirdInteractionEventRecord {
+  id: string;
+  contactId: string;
+  type: string;
+  detail: string;
+  createdAt: string;
+}
+
 export async function trackEvent(params: {
   contactId: string;
   eventName: string;
   properties?: Record<string, unknown>;
   timestamp?: Date;
 }): Promise<BirdEvent | null> {
-  const createdAt = (params.timestamp ?? new Date()).toISOString();
+  const record = await createObject<BirdInteractionEventRecord>("interactionEvent", {
+    contactId: params.contactId,
+    type: params.eventName,
+    detail: (params.properties?.detail as string) ?? "",
+  });
+  if (!record) return null;
 
-  if (!env.bird.trackingWriteKey || !env.bird.trackingEndpoint) {
-    console.warn(`[bird] tracking not configured -- skipping trackEvent ${params.eventName}`);
-    return null;
-  }
-
-  try {
-    const res = await fetch(env.bird.trackingEndpoint, {
-      method: "POST",
-      headers: {
-        "X-Bird-Write-Key": env.bird.trackingWriteKey,
-        "X-Bird-Workspace-Id": env.bird.workspaceId,
-        "X-Bird-Event-Name": params.eventName,
-        "X-Bird-Sdk-Version": "0.0.1",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        identifiers: [{ key: "id", value: params.contactId }],
-        properties: params.properties ?? {},
-      }),
-    });
-
-    if (!res.ok) {
-      console.error(`[bird] trackEvent failed: ${res.status} ${await res.text()}`);
-      return null;
-    }
-
-    return { id: crypto.randomUUID(), contactId: params.contactId, eventName: params.eventName, properties: params.properties, createdAt };
-  } catch (err) {
-    console.error("[bird] trackEvent error", err);
-    return null;
-  }
+  return {
+    id: record.id,
+    contactId: record.contactId,
+    eventName: record.type,
+    properties: params.properties,
+    createdAt: record.createdAt ?? (params.timestamp ?? new Date()).toISOString(),
+  };
 }
 
 export async function listEventsForContact(contactId: string, limit = 20): Promise<BirdEvent[]> {
-  if (!isConfigured()) return [];
-
-  const url = `${baseUrl()}/workspaces/${env.bird.workspaceId}/contacts/${contactId}/events?limit=${limit}`;
-
-  try {
-    const res = await fetch(url, { headers: { Authorization: authHeader() } });
-    if (!res.ok) {
-      console.error(`[bird] listEventsForContact failed: ${res.status} ${await res.text()}`);
-      return [];
-    }
-    const data = (await res.json()) as {
-      results: { id: string; name: string; properties?: Record<string, unknown>; createdAt: string }[];
-    };
-    return data.results.map((e) => ({
-      id: e.id,
-      contactId,
-      eventName: e.name,
-      properties: e.properties,
-      createdAt: e.createdAt,
+  const records = await searchObjects<BirdInteractionEventRecord>(
+    "interactionEvent",
+    [{ attribute: "contactId", operator: "string/equals", value: contactId }],
+    limit
+  );
+  return records
+    .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))
+    .slice(0, limit)
+    .map((r) => ({
+      id: r.id,
+      contactId: r.contactId,
+      eventName: r.type,
+      properties: { detail: r.detail },
+      createdAt: r.createdAt,
     }));
-  } catch (err) {
-    console.error("[bird] listEventsForContact error", err);
-    return [];
-  }
 }
