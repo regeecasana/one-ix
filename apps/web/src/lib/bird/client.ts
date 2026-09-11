@@ -25,6 +25,18 @@ import { env } from "../env";
 // encodeURIComponent'd email (e.g. "%40" for "@") gets rejected as "not a
 // valid email address". The email must go into these URLs raw.
 //
+// `GET /contacts/identifiers/{key}/{value}` (read-by-identifier) returns
+// a blanket 403 no matter the identifier type (email, externalId, etc.)
+// or how permissive the AccessKey's policies are -- confirmed by testing
+// with a key its own owner describes as having full access. A PATCH to
+// the same path works fine (that's how upsertContact's conflict fallback
+// works above), but PATCHing a *nonexistent* identifier silently creates
+// a new contact (201) rather than 404ing, so it can't safely stand in
+// for a read -- using it as a "does this exist" check would pollute the
+// workspace with a junk contact on every failed lookup. Instead,
+// getContactByEmail lists+paginates `GET /contacts` (plain list, same
+// pattern as bird/objects.ts's searchObjects) and matches client-side.
+//
 // Bird's own contact `id` is the canonical "customerId" everywhere else in
 // this app (carts, orders, vouchers, support tickets all store it as a
 // plain string field) -- there's no separate app-side id to bridge to now
@@ -151,21 +163,41 @@ export async function upsertContact(params: {
   }
 }
 
+// Caps how many pages of the workspace's full contact list this will
+// scan looking for a match -- read-by-identifier being forbidden (see
+// file header) means this is a linear scan, not a real lookup. Fine at
+// this app's own contact volume; a workspace with many thousands of
+// *unrelated* contacts (this one already has some, e.g. from other
+// integrations) could in the worst case not find a match within the cap.
+const MAX_CONTACT_LIST_PAGES = 20;
+const CONTACT_LIST_PAGE_SIZE = 100;
+
 export async function getContactByEmail(email: string): Promise<BirdContact | null> {
   if (!isConfigured()) return null;
 
-  const url = `${baseUrl()}/workspaces/${env.bird.workspaceId}/contacts/identifiers/emailaddress/${email}`;
-
+  let pageToken: string | undefined;
   try {
-    const res = await fetch(url, { headers: { Authorization: authHeader() } });
-    if (!res.ok) {
-      if (res.status !== 404) {
+    for (let page = 0; page < MAX_CONTACT_LIST_PAGES; page++) {
+      const url = new URL(`${baseUrl()}/workspaces/${env.bird.workspaceId}/contacts`);
+      url.searchParams.set("limit", String(CONTACT_LIST_PAGE_SIZE));
+      if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+      const res = await fetch(url, { headers: { Authorization: authHeader() } });
+      if (!res.ok) {
         console.error(`[bird] getContactByEmail failed: ${res.status} ${await res.text()}`);
+        return null;
       }
-      return null;
+
+      const data = (await res.json()) as { results: ContactResponse[]; nextPageToken?: string };
+      const match = data.results.find((c) =>
+        c.featuredIdentifiers?.some((i) => i.key === "emailaddress" && i.value === email)
+      );
+      if (match) return contactFromResponse(match, email);
+
+      if (!data.nextPageToken) return null;
+      pageToken = data.nextPageToken;
     }
-    const data = (await res.json()) as ContactResponse;
-    return contactFromResponse(data, email);
+    return null;
   } catch (err) {
     console.error("[bird] getContactByEmail error", err);
     return null;
