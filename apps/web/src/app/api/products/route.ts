@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const products = await searchObjects<BirdProduct>("products", [], 1000);
+    const products = await searchObjects<BirdProduct>("products", []);
     products.sort((a, b) => a.name.localeCompare(b.name));
     return NextResponse.json(products.map(serializeProduct));
   } catch (err) {
